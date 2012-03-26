@@ -176,6 +176,7 @@ int run_tests(void)
 static void do_test_help(char *str)
 {
 	printk("test all\ntest special\ntest show\n");
+	printk("test cache\n");
 	printk("test testname [times]\n");
 }
 static int do_test(int argc,char *argv[])
@@ -196,6 +197,8 @@ static int do_test(int argc,char *argv[])
 		test_special(tfuns, sizeof(tfuns)/sizeof(tfuns[0]));
 	else if (argc >= 2 && strcmp(argv[1],"show") == 0)
 		show_all_test();
+	else if (argc >= 2 && strcmp(argv[1],"cache") == 0)
+		cache_probe();
 	else if (argc >= 3) {
 		int loop;
 		struct test_entity *t;

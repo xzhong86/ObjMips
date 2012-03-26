@@ -4,6 +4,8 @@ include $(ROOT)/config.mk
 
 SRCS = old_test.c test.c performance.c cache-probe.c usermap.c
 
+SRCS += memory.c
+
 # This order is important
 SRCS += tst_smp_ipi.c
 SRCS += tst_pcpu.c
@@ -52,6 +54,7 @@ SRCS += tst_dma0.c
 #SRCS += tst_dma1.c
 SRCS += tst_uca.c
 SRCS += tst_uca1.c
+SRCS += tst_uca_wrb.c
 
 
 include $(ROOT)/make-var.mk

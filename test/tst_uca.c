@@ -3,12 +3,46 @@
 #include <cache.h>
 #include <mem.h>
 
+#define REG32(addr)	(*(volatile unsigned *)(addr))
+static void stt_start(void)
+{
+	REG32(0xB30A0000) = 0x0;
+	REG32(0xB30A0000) = 0x2;
+	REG32(0xB30A0000) = 0x1;
+}
+static void stt_stop(void)
+{
+	REG32(0xB30A0000) = 0x0;
+}
+static void stt_report(void)
+{
+	int i, *p;
+	char *names[] = { "rd_hit", "write", "rd_miss", "uncache" };
+	char *wrbddr[] = { "Hclk LO", "Hclk HI", "Wrb Hazard", "Wrb full",
+			   "UCA WR Num", "AHB WR Num", "AHB WR Cyc",
+			   "AHB WR Rdy", "AHB WR Dly" };
+	struct stt_unit {
+		unsigned int num;
+		unsigned int counter[2];
+	} * stt_arr;
+	stt_arr = (struct stt_unit*)0xB30A0008;
+	for (i = 0; i < 4; i++) {
+		printf("%s\t %d \t %d\n", names[i],
+		       stt_arr[i].counter[0], stt_arr[i].num);
+	}
+	p = (int*) 0xB30A0038;
+	for (i = 0; i < 9; i++) {
+		printf("%s\t %d\n", wrbddr[i], p[i]);
+	}
+}
+
 static int test_write(int *p, int len, int val)
 {
 	unsigned int cyc,tmp;
 
-	printk("test %d word write @ %p:\n",len,p);
+	printk("test %d word write @ %p:",len,p);
 
+	stt_start();
 	pmon_prepare(PMON_EVENT_CYCLE);
 	pmon_start();
 	while (len --) {
@@ -16,16 +50,19 @@ static int test_write(int *p, int len, int val)
 	}
 	pmon_stop();
 
+	stt_stop();
 	pmon_get_cnt32(tmp,cyc);
 	printk("\tused %d cycles.\n",cyc);
+	stt_report();
 	return 0;
 }
 static int test_read(int *p, int len, int val)
 {
 	unsigned int err,cyc,tmp;
 
-	printk("test %d word read @ %p:\n",len,p);
+	printk("test %d word read @ %p:",len,p);
 
+	stt_start();
 	pmon_prepare(PMON_EVENT_CYCLE);
 	pmon_start();
 	for (err = 0; len; len--, p++) {
@@ -33,8 +70,10 @@ static int test_read(int *p, int len, int val)
 	}
 	pmon_stop();
 
+	stt_stop();
 	pmon_get_cnt32(tmp,cyc);
 	printk("\tused %d cycles, %d errors.\n",cyc,err);
+	stt_report();
 	return 0;
 }
 

@@ -5,20 +5,37 @@
 #include <string.h>
 #include <stdlib.h>
 
-static int test_copy(int *dst, int *src, int len)
+#define REG32(addr)	(*(volatile unsigned *)(addr))
+static void stt_start(void)
 {
-	unsigned int cyc,tmp;
-
-	printk("test %d word copy %p <= %p:",len,dst,src);
-
-	pmon_prepare(PMON_EVENT_CYCLE);
-	pmon_start();
-	memcpy(dst, src, len*(sizeof(int)));
-	pmon_stop();
-
-	pmon_get_cnt32(tmp,cyc);
-	printk("\tused %d cycles.\n",cyc);
-	return 0;
+	REG32(0xB30A0000) = 0x0;
+	REG32(0xB30A0000) = 0x2;
+	REG32(0xB30A0000) = 0x1;
+}
+static void stt_stop(void)
+{
+	REG32(0xB30A0000) = 0x0;
+}
+static void stt_report(void)
+{
+	int i, *p;
+	char *names[] = { "rd_hit", "write", "rd_miss", "uncache" };
+	char *wrbddr[] = { "Hclk LO", "Hclk HI", "Wrb Hazard", "Wrb full",
+			   "UCA WR Num", "AHB WR Num", "AHB WR Cyc",
+			   "AHB WR Rdy", "AHB WR Dly" };
+	struct stt_unit {
+		unsigned int num;
+		unsigned int counter[2];
+	} * stt_arr;
+	stt_arr = (struct stt_unit*)0xB30A0008;
+	for (i = 0; i < 4; i++) {
+		printf("%s\t %d \t %d\n", names[i],
+		       stt_arr[i].counter[0], stt_arr[i].num);
+	}
+	p = (int*) 0xB30A0038;
+	for (i = 0; i < 9; i++) {
+		printf("%s\t %d\n", wrbddr[i], p[i]);
+	}
 }
 
 #include <mips_inst.h>
@@ -88,6 +105,7 @@ static void mywrite(int nwrt, int nspc, int ins_read,
 	printk("mywrite_%d_%d %p:",nwrt,nspc,dst);
 	pmon_prepare(PMON_EVENT_CYCLE);
 	pmon_start();
+	stt_start();
 
 	while (len > nwrt) {
 		write_fun(dst, rd, val);
@@ -98,9 +116,11 @@ static void mywrite(int nwrt, int nspc, int ins_read,
 	for (i = 0; i < len; i++)
 		*dst++ = val;
 
+	stt_stop();
 	pmon_stop();
 	pmon_get_cnt32(tmp,cyc);
 	printk("\tused %d cycles.\n",cyc);
+	stt_report();
 	free(arg.buf);
 }
 
@@ -140,63 +160,6 @@ static void mycopy(int ncpy, int nspc,
 	free(arg.buf);
 }
 
-static void crosscheck(int *dst, int *crs0, int *crs1, int val, int len)
-{
-	unsigned int i, err = 0;
-	int v0, v1, *d, *c0, *c1;
-
-	printk("crosscheck %p %x", dst, val);
-
-	val = 0x5a8796a5;
-	v0 = crs0[0]; v1 = crs1[0];
-	c0 = crs0; c1 = crs1;
-	for (i = 0; i < len; ) {
-		int **p,v,j,r = rand()%64;
-		j = len - i > r ? len - i - 1 : r - 1;
-		d = dst + i;
-		for (; j >= 0; j--)
-			d[j] = val;
-		i += r;
-		if (i >= len)
-			break;
-
-		/* insert operation */
-		r = rand()%64;
-		if (r & 1) {
-			p = &c1;
-			v = v1;
-		} else {
-			p = &c0;
-			v = v0;
-		}
-		j = r & 2;
-		r = r >> 2;
-		if (j) {
-			/* insert read check */
-			for (j = 0; j < r; j++)
-				err += (*p)[j] != v;
-		} else {
-			/* insert write */
-			for (j = 0; j < r; j++)
-				(*p)[j] = val;
-			*p += r;
-		}
-	}
-	for (i = 0; i < len; i ++)
-		err += dst[i] != val;
-
-	for (i = 0; i < c0 - crs0; i ++)
-		err += crs0[i] != val;
-	for (i = 0; i < c0 - crs0; i ++) /* store back */
-		crs0[i] = v0;
-
-	for (i = 0; i < c1 - crs1; i ++)
-		err += crs1[i] != val;
-	for (i = 0; i < c1 - crs1; i ++) /* store back */
-		crs1[i] = v1;
-
-	printk("\terror %d .\n", err);
-}
 
 #define MBLK_BASE	0x82000000
 #define MBLK_SIZE	0x00080000
@@ -204,7 +167,7 @@ static void crosscheck(int *dst, int *crs0, int *crs1, int val, int len)
 #define UCA_BASE	0xC2000000
 #define CAC_BASE	0xC3000000
 
-int test_uca1(void)
+int test_uca_wrb(void)
 {
 	int *p_src = (int*)MBLK_BASE;
 	int *p_cac = (int*)CAC_BASE;
@@ -222,24 +185,10 @@ int test_uca1(void)
 	add_mem_range(base, MBLK_SIZE, CAC_BASE, PG_NORMAL);
 
 	mywrite(64, 0, 0, p_src, p_src, 0x5a5aa5a5, len);
-	test_copy(p_uncac, p_src, len);
-	test_copy(p_uca,   p_src, len);
-	test_copy(p_cac,   p_src, len);
 
-	for (i = 0; i < 120; i += 8) 
-		mywrite(128 - i, i, 0, p_uca, p_uca, 0x5aa55aa5, len);
+	mywrite(128 , 0, 0, p_uca, p_uca, 0x5aa55aa5, len);
 
-	for (i = 1; i < 65; i *= 2) 
-		mywrite(64, i, 1, p_uca, p_uca, 0x5aa55aa5, len);
-
-	for (i = 1; i < 65; i *= 2) 
-		mywrite(64, i, 1, p_uca, p_src, 0x5aa55aa5, len);
-
-	for (i = 4; i < 64; i += 6) 
-		mycopy(64 - i, i*2, p_cac, p_src, len);
-
-	for (i = 0; i < 8; i ++) 
-		crosscheck(p_uca, p_cac, p_uncac, rand(), len);
+	mycopy(64 , 0, p_cac, p_src, len);
 
 	remove_mem_range(UNCAC_BASE);
 	remove_mem_range(UCA_BASE);
@@ -248,4 +197,4 @@ int test_uca1(void)
 	return 0;
 }
 
-DEF_TEST(test_uca1, 10, TESTF_REPEAT);
+DEF_TEST(test_uca_wrb, 10, TESTF_REPEAT);

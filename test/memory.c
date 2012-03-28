@@ -5,8 +5,6 @@
 #include <smp_io.h>
 #include <command.h>
 
-#include "test-head.h"
-
 static void write_words(unsigned int addr, int wds, unsigned int val)
 {
 	unsigned int *p = (unsigned int*)addr;

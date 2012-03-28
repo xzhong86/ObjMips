@@ -7,12 +7,6 @@
 #include <smp_io.h>
 #include <smp_stat.h>
 
-struct cpu_regs {
-	unsigned long *saved_regs;
-	unsigned long cp0_epc, cp0_badvaddr;
-	unsigned long cp0_status, cp0_cause;
-};
-
 static void show_regs(struct cpu_regs *reg);
 static void show_code(struct cpu_regs *reg);
 static void show_stack(struct cpu_regs *reg);
@@ -45,7 +39,7 @@ void trap_entry(unsigned long *regs, unsigned int status)
 	code = (reg.cp0_cause>>2) & 0x1f;
 
 	if(code == 0) {
-		irq_entry();
+		irq_entry(&reg);
 		goto trap_end;
 	}
 

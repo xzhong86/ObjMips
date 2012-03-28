@@ -2,9 +2,16 @@
 #ifndef IRQ_H
 #define IRQ_H
 
-extern int setup_irq(void);
+struct cpu_regs {
+	unsigned long *saved_regs;
+	unsigned long cp0_epc, cp0_badvaddr;
+	unsigned long cp0_status, cp0_cause;
+};
 
-extern void irq_entry(void);
+extern int setup_irq(void);
+extern void irq_entry(struct cpu_regs *reg);
+
+
 
 #define IRQ_INTC_BASE 8
 /* API to register a irq handle function, the IRQ NO. is
@@ -14,10 +21,11 @@ extern void irq_entry(void);
  * MSC0 is bit 5 of ICSR1, irq NO. is 45
  */
 typedef void (*irqfun)(void);
-/* get irq NO. from ICSR register value */
-extern int tst_irq(unsigned int sr1,unsigned int sr0);
 extern int register_irqfun(int irq,irqfun fun,const char *name);
 extern void unregister_irqfun(int irq);
+
+/* get irq NO. from ICSR register value */
+extern int tst_irq(unsigned int sr1,unsigned int sr0);
 
 extern void print_irqs(void);
 

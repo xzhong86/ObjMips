@@ -8,14 +8,6 @@
 #include <smp_io.h>
 #include <smp_stat.h>
 
-static inline void inc_epc(int inc)
-{
-	unsigned int epc;
-	epc = read_c0_epc();
-	epc += inc;
-	write_c0_epc(epc);
-}
-
 int setup_irq(void)
 {
 
@@ -31,14 +23,14 @@ static unsigned int irqs[CPU_NR][IRQ_NR];
 static irqfun irqfuns[IRQ_NR];
 static const char *irqnames[IRQ_NR];
 
-void irq_entry(void)
+void irq_entry(struct cpu_regs *reg)
 {
-	unsigned int cs = read_c0_cause();
+	unsigned int cs = reg->cp0_cause;
 	int cpu = smp_cpu_id();
 	int irq;
 	
 	SMP_STAT_FUNC();
-	cs &= read_c0_status() & 0xff00;
+	cs &= reg->cp0_status & 0xff00;
 	if(cs & 0x800) {
 		smp_ipi_interrupt();
 		irq = 3;
@@ -54,16 +46,13 @@ void irq_entry(void)
 	else if(cs & 0x100) {
 		irq = 0;
 		irqs[cpu][irq] ++;
-		inc_epc(4);
+		reg->cp0_epc += 4;
 	}
 	else if(cs & 0x200) {
 		irq = 1;
 		irqs[cpu][irq] ++;
-		inc_epc(4);
+		reg->cp0_epc += 4;
 	}
-	cs = read_c0_cause();
-	cs &= ~0xff00;
-	write_c0_cause(cs);
 }
 
 static int get_irq(void)

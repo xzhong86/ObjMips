@@ -30,6 +30,8 @@
 
 #define STARTUP_STACK_SIZE	0x0100
 
+#define SETUP_CCA	3
+
 /* This is for referencing addresses that are not in the .sdata or
    .sbss section under embedded-pic, or before we've set up gp.  */
 #define LA(t,x) la t,x
@@ -79,7 +81,9 @@ _start:
 	addi	t0, CFG_CACHELINE_SIZE
 
 	mfc0	v0, C0_CONFIG
-	ori	v0, v0, 3
+	li	v1, ~0x7
+	and	v0, v1
+	ori	v0, v0, SETUP_CCA
 	mtc0	v0, C0_CONFIG
 	mtc0	zero, C0_CAUSE
 
@@ -248,7 +252,9 @@ _start_secondary:
 #endif
 
 	mfc0	v0, C0_CONFIG
-	ori	v0, v0, 3
+	li	v1, ~0x7
+	and	v0, v1
+	ori	v0, v0, SETUP_CCA
 	mtc0	v0, C0_CONFIG
 	mtc0	zero, C0_CAUSE
 	

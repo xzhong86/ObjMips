@@ -130,7 +130,18 @@ static const char *tfuns[] = {
 	"test_cache1",
 	"test_cache2",
 	"test_cache3",
-	"test_mixed",
+	"test_cache4s",
+	"test_cache4l",
+	"test_cache4",
+	"test_spinlock3_uc7w",
+	"test_spinlock3_uc7w2",
+	"test_spinlock3_uc7w3",
+	"test_spinlock3_7w",
+	"test_spinlock2_15w",
+	"test_spinlock2_31w",
+	"test_spinlock2_5w",
+	"test_spinlock2",
+//	"test_mixed",
 };
 int run_tests(void)
 {

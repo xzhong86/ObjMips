@@ -89,6 +89,10 @@ void param_init(void)
 	}
 
 	get_args();
+	printk("pass argument:");
+	for (i = 0; i < pass_argc; i++)
+		printk(" %s", pass_argv[i]);
+	printk("\n");
 	for (i = 0; i < pass_argc; i++) {
 		char *s = pass_argv[i];
 		for (j = 0; s[j]; j++)

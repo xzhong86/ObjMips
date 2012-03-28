@@ -1,6 +1,4 @@
 
-ROOT	?= ..
-include $(ROOT)/config.mk
 
 SRCS = old_test.c test.c performance.c cache-probe.c usermap.c
 
@@ -56,9 +54,3 @@ SRCS += tst_uca.c
 SRCS += tst_uca1.c
 SRCS += tst_uca_wrb.c
 
-
-include $(ROOT)/make-var.mk
-
-all: built.o
-
-include $(ROOT)/make-com.mk

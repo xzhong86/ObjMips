@@ -1,6 +1,6 @@
 *.o
 .*.d
-depend
+.depend
 /include/config.h
 /dump
 /mini

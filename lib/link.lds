@@ -104,15 +104,18 @@ SECTIONS
    _fdata = ALIGN(16);
   .data : {
     *(.data)
-    __test_entity_start = .;
-    *(.data.test_entity)
-    __test_entity_stop = .;
     __setup_entity_start = .;
     *(.data.setup_entity)
     __setup_entity_stop = .;
+    __initcall_entity_start = .;
+    *(.data.initcall_entity)
+    __initcall_entity_stop = .;
     __command_entity_start = .;
     *(.data.command_entity)
     __command_entity_stop = .;
+    __test_entity_start = .;
+    *(.data.test_entity)
+    __test_entity_stop = .;
     *(.data.*)
     *(.gnu.linkonce.d*)
   }

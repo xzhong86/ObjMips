@@ -31,10 +31,12 @@ static void soft_init(void)
 }
 
 extern void param_init(void);
+extern void init_initcalls(void);
 void software_init_fun(void)
 {
 	param_init();
 	soft_init();
+	init_initcalls();
 }
 
 void print_c0_regs(void)

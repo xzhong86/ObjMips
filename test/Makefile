@@ -1,56 +1,56 @@
 
 
-SRCS = old_test.c test.c performance.c cache-probe.c usermap.c
+obj-y = old_test.o test.o performance.o cache-probe.o usermap.o
 
-SRCS += memory.c
+obj-y += memory.o
 
 # This order is important
-SRCS += tst_smp_ipi.c
-SRCS += tst_pcpu.c
-SRCS += tst_smp_msg0.c
-SRCS += tst_smp_msg1.c
+obj-y += tst_smp_ipi.o
+obj-y += tst_pcpu.o
+obj-y += tst_smp_msg0.o
+obj-y += tst_smp_msg1.o
 
-SRCS += tst_llsc.c
-SRCS += tst_atomic0.c
-SRCS += tst_atomic1.c
-SRCS += tst_atomic2.c
-SRCS += tst_atomic3.c
-SRCS += tst_atomic4.c
-SRCS += tst_atomic5.c
+obj-y += tst_llsc.o
+obj-y += tst_atomic0.o
+obj-y += tst_atomic1.o
+obj-y += tst_atomic2.o
+obj-y += tst_atomic3.o
+obj-y += tst_atomic4.o
+obj-y += tst_atomic5.o
 
-SRCS += tst_spinlock0.c
-SRCS += tst_spinlock1.c
-SRCS += tst_spinlock2.c
-SRCS += tst_spinlock2_5w.c
-SRCS += tst_spinlock2_15w.c
-SRCS += tst_spinlock2_31w.c
-SRCS += tst_spinlock3_7w.c
-SRCS += tst_spinlock3_uc7w.c
-SRCS += tst_spinlock3_uc7w2.c
-SRCS += tst_spinlock3_uc7w3.c
-SRCS += tst_rwlock0.c
-SRCS += tst_rwlock1.c
+obj-y += tst_spinlock0.o
+obj-y += tst_spinlock1.o
+obj-y += tst_spinlock2.o
+obj-y += tst_spinlock2_5w.o
+obj-y += tst_spinlock2_15w.o
+obj-y += tst_spinlock2_31w.o
+obj-y += tst_spinlock3_7w.o
+obj-y += tst_spinlock3_uc7w.o
+obj-y += tst_spinlock3_uc7w2.o
+obj-y += tst_spinlock3_uc7w3.o
+obj-y += tst_rwlock0.o
+obj-y += tst_rwlock1.o
 
-SRCS += tst_cache0.c
-SRCS += tst_cache1.c
-SRCS += tst_cache2.c
-SRCS += tst_cache3.c
-SRCS += tst_cache4.c
-SRCS += tst_cache4l.c
-SRCS += tst_cache4s.c
+obj-y += tst_cache0.o
+obj-y += tst_cache1.o
+obj-y += tst_cache2.o
+obj-y += tst_cache3.o
+obj-y += tst_cache4.o
+obj-y += tst_cache4l.o
+obj-y += tst_cache4s.o
 
-SRCS += tst_mem0.c
+obj-y += tst_mem0.o
 
-SRCS += tst_mixed.c
-SRCS += tst_chain0.c
-SRCS += tst_consume.c
+obj-y += tst_mixed.o
+obj-y += tst_chain0.o
+obj-y += tst_consume.o
 
-SRCS += tst_exception.c
-#SRCS += tst_float.c
-#SRCS += tst_float1.c
-SRCS += tst_dma0.c
-#SRCS += tst_dma1.c
-SRCS += tst_uca.c
-SRCS += tst_uca1.c
-SRCS += tst_uca_wrb.c
+obj-y += tst_exception.o
+#obj-y += tst_float.o
+#obj-y += tst_float1.o
+obj-y += tst_dma0.o
+#obj-y += tst_dma1.o
+obj-y += tst_uca.o
+obj-y += tst_uca1.o
+obj-y += tst_uca_wrb.o
 

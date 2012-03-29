@@ -23,28 +23,27 @@ BASE		?= $(ROOT)/base/built.o
 
 CFLAGS		+= -I$(ROOT)/include
 
-OBJS	=
-ifneq ($(SRCS),)
-OBJS	+= $(addsuffix .o,$(basename $(SRCS)))
-DEPS	= $(addprefix .,$(addsuffix .d,$(basename $(SRCS))))
-endif
-ifneq ($(DIRS),)
-OBJS	+= $(addsuffix built.o,$(DIRS))
+UNKNOWN	= $(filter-out %.o %/,$(obj-y))
+ifneq ($(UNKNOWN),)
+$(error "unknown obj: $(UNKNOWN)")
 endif
 
-MAKE	+= --no-print-directory
+DEPS	= $(patsubst %.o,.%.d,$(filter %.o,$(obj-y)))
+OBJS	= $(patsubst %/,%/built.o,$(obj-y))
+DIRS	= $(patsubst %/,%,$(filter %/, $(obj-y)))
 
-v_mk_cmd = $(MAKE) ROOT=$(ROOT) --makefile $(ROOT)/script/makefile -C $<
+MAKE	= make --no-print-directory
+MAKE	+= ROOT=$(ROOT) --makefile $(ROOT)/script/makefile
+
+v_mk_cmd = $(MAKE) -C $@
 v_ld_cmd = $(LD) $(BUILTFLAG) -r -o $@ $(OBJS)
 v_cc_cmd = $(GCC) $(ALLFLAGS) -c $< -o $@
 v_as_cmd = $(GCC) $(ALLFLAGS) -D__ASSEMBLY__ -c $< -o $@
 v_dep_cmd = $(GCC) $(filter -I%,$(ALLFLAGS)) -MM $< | \
-	sed 's,\($*\)\.o[:]*,\1.o $@:,g' > $@.tmp; \
-	if ! test -e $@ || ! cmp -s $@.tmp $@ ; then mv -f $@.tmp $@; \
-	else rm -f $@.tmp;  touch $@; fi;
+	sed 's,\($*\)\.o[:]*,\1.o $@:,g' >| $@;
 
 ifndef V
-mk_cmd = @echo "MAKE -C $(SUBPATH)$<"; $(v_mk_cmd)
+mk_cmd = @echo "MAKE -C $(SUBPATH)$@"; $(v_mk_cmd)
 ld_cmd = @echo "BUILD -o $(SUBPATH)$@"; $(v_ld_cmd)
 cc_cmd = @echo "CC -c $(SUBPATH)$<"; $(v_cc_cmd)
 as_cmd = @echo "AS -c $(SUBPATH)$<"; $(v_as_cmd)

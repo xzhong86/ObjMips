@@ -3,13 +3,11 @@ ROOT	= $(PWD)
 
 include config.mk
 
-SRCS	= main.c
-DIRS	= base/ drivers/ test/
+obj-y	= main.o
+obj-y	+= base/ drivers/ test/
 
-ifeq ($(CONFIG_CUI),y)
 # Command User Interface
-DIRS	+= cui/
-endif
+obj-$(CONFIG_CUI) += cui/
 
 include script/make-var.mk
 
@@ -25,20 +23,20 @@ mini: $(OBJS)
 	@echo "LINK -o $@"; $(LD) -T lib/link.lds -o $@  $^ $(LIBS)
 
 dump: mini
-	$(OBJDUMP) -D $< >| dump
+	@echo "DUMP > $@"; $(OBJDUMP) -d $< >| dump
 
 ncsim: mini
 	$(OBJCOPY) --set-section-flags .text_rom=alloc,readonly,code $< mini
 
 
 .PHONY: all clean image install config ncsim distclean
-clean: 
-	@echo "CLEAN"; \
-	rm -r mini ; \
-	$(MAKE) _clean
-distclean: 
-	@echo "DISTCLEAN"; \
-	rm -f mini dump uImage; \
-	$(MAKE) _distclean
+clean: _clean
+	@echo "CLEANED"; \
+	rm -f mini ; 
+
+distclean: _distclean
+	@echo "DISTCLEANED"; \
+	rm -f mini dump uImage; 
 
 include script/make-com.mk
+include .depend

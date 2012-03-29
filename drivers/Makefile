@@ -1,6 +1,6 @@
 
 
-SRCS	= drivers.c serial.c time.c intc.c pll.c pm.c dma.c
-SRCS	+= com_serial.c 
-SRCS	+= clk_4770.c #clk_4760.c #clk_4770.c 
+obj-y	= drivers.o serial.o time.o intc.o pll.o pm.o dma.o
+obj-y	+= com_serial.o 
+obj-y	+= clk_4770.o #clk_4760.o #clk_4770.o 
 

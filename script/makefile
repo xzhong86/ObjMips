@@ -9,6 +9,14 @@ include Makefile
 
 include $(ROOT)/script/make-var.mk
 
-all: subdir built.o
+.PHONY: check
+all: subdir built.o check
+
+check:
+	@if [ built.o -nt . ] ; then \
+		touch . ; \
+	fi
 
 include $(ROOT)/script/make-com.mk
+
+include .depend

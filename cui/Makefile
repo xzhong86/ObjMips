@@ -1,3 +1,3 @@
 
 
-SRCS	= cui.c console.c command.c
+obj-y	= cui.o console.o command.o

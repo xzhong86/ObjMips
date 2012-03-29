@@ -4,14 +4,10 @@ SUBPATH = $(subst $(ROOT)/,,$(shell pwd)/)
 
 .PHONY: subdir
 
+subdir: $(DIRS)
+
 built.o: $(OBJS) Makefile
 	$(ld_cmd)
-
-subdir:
-	@for sub in $(DIRS) ; do \
-		echo "MAKE -C $(SUBPATH)$$sub"; \
-		$(v_mk_cmd) ./$$sub all || exit 1; \
-	done;
 
 %.o: %.c
 	$(cc_cmd)
@@ -23,22 +19,29 @@ subdir:
 .%.d: %.S
 	$(dep_cmd)
 
-ifneq ($(DEPS),)
-.depend: $(DEPS)
-	@echo "GEN .depend " ; cat $^ > $@
+ifneq ($(DEPS) $(DIRS),)
+MK_CMD = $(mk_cmd)
+.depend: $(DEPS) Makefile
+	@echo "GEN $(SUBPATH).depend " ; \
+	rm -f $@ ; \
+	echo ".PHONY: $(DIRS)" > $@ ; \
+	echo "$(DIRS): " >> $@ ; \
+	echo "	\$(value MK_CMD)" >> $@ ; \
+	if [ -n "$(DEPS)" ] ; then \
+		cat $(DEPS) >> $@ ; \
+	fi ;
 endif
 
 .PHONY: _clean _distclean
 _clean:
 	@rm -f *.o; \
 	for sub in $(DIRS) ; do \
-		$(v_mk_cmd) ./$$sub _clean; \
+		$(MAKE) -C ./$$sub _clean; \
 	done
 
 _distclean:
 	@rm -f *.o .depend .*.d; \
 	for sub in $(DIRS) ; do \
-		$(v_mk_cmd) ./$$sub _distclean; \
+		$(MAKE) -C ./$$sub _distclean; \
 	done
 
-include .depend

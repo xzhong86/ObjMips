@@ -190,6 +190,7 @@ static void do_test_help(char *str)
 	printk("test cache\n");
 	printk("test testname [times]\n");
 }
+extern int cache_probe(void);
 static int do_test(int argc,char *argv[])
 {
 	if (argc < 2) {

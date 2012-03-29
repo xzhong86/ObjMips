@@ -3,6 +3,7 @@
 #include <cache.h>
 #include <mem.h>
 
+#if 0
 #define REG32(addr)	(*(volatile unsigned *)(addr))
 static void stt_start(void)
 {
@@ -35,6 +36,11 @@ static void stt_report(void)
 		printf("%s\t %d\n", wrbddr[i], p[i]);
 	}
 }
+#else
+#define stt_start()	do { } while(0)
+#define stt_stop()	do { } while(0)
+#define stt_report()	do { } while(0)
+#endif
 
 static int test_write(int *p, int len, int val)
 {

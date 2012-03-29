@@ -53,4 +53,5 @@ obj-y += tst_dma0.o
 obj-y += tst_uca.o
 obj-y += tst_uca1.o
 obj-y += tst_uca_wrb.o
+obj-y += tst_ddr.o
 

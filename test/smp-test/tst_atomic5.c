@@ -101,7 +101,6 @@ static void push_slave(void)
 static int fun_main(void)
 {
 	int i,j,msg,cpu = smp_cpu_id();
-	int hold = 0;
 	smp_msg_receive_n(&msg,CPUS-1);
 	
 	pcpu_srand(cpu);

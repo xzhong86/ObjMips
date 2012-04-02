@@ -32,10 +32,10 @@ obj-y += tst_cache2.o
 obj-y += tst_cache3.o
 obj-y += tst_cache4.o
 obj-y += tst_cache4l.o
-obj-y += tst_cache4s.o
+#obj-y += tst_cache4s.o
 
 obj-y += tst_mem0.o
 
 obj-y += tst_mixed.o
 obj-y += tst_chain0.o
-obj-y += tst_consume.o
+#obj-y += tst_consume.o

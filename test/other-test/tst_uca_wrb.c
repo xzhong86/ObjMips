@@ -171,11 +171,10 @@ int test_uca_wrb(void)
 {
 	int *p_src = (int*)MBLK_BASE;
 	int *p_cac = (int*)CAC_BASE;
-	int *p_uncac = (int*)UNCAC_BASE;
+	//int *p_uncac = (int*)UNCAC_BASE;
 	int *p_uca = (int*)UCA_BASE;
 	int len = MBLK_SIZE / sizeof(int);
 	unsigned long base = MBLK_BASE;
-	int i;
 
 	base = base + MBLK_SIZE;
 	add_mem_range(base, MBLK_SIZE, UNCAC_BASE, PG_UNCACHE);

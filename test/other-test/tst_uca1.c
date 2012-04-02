@@ -238,8 +238,8 @@ int test_uca1(void)
 	for (i = 4; i < 64; i += 6) 
 		mycopy(64 - i, i*2, p_cac, p_src, len);
 
-	//for (i = 0; i < 8; i ++) 
-	//	crosscheck(p_uca, p_cac, p_uncac, rand(), len);
+	for (i = 0; i < 8; i ++) 
+		crosscheck(p_uca, p_cac, p_uncac, rand(), len);
 
 	remove_mem_range(UNCAC_BASE);
 	remove_mem_range(UCA_BASE);

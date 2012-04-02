@@ -5,7 +5,11 @@ endif
 
 include $(ROOT)/config.mk
 
+ifeq ($(wildcard Makefile),)
+$(error "Makefile not found.")
+else
 include Makefile
+endif
 
 include $(ROOT)/script/make-var.mk
 
@@ -19,4 +23,6 @@ check:
 
 include $(ROOT)/script/make-com.mk
 
+ifneq (,$(filter-out _clean _distclean,$(MAKECMDGOALS)))
 include .depend
+endif

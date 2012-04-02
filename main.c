@@ -15,7 +15,6 @@ int old_test(void);
 int run_tests(void);
 int main()
 {
-	old_test();
 	if (!nocui)
 		cui_shell();
 	run_tests();

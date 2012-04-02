@@ -24,9 +24,11 @@ MK_CMD = $(mk_cmd)
 .depend: $(DEPS) Makefile
 	@echo "GEN $(SUBPATH).depend " ; \
 	rm -f $@ ; \
-	echo ".PHONY: $(DIRS)" > $@ ; \
-	echo "$(DIRS): " >> $@ ; \
-	echo "	\$(value MK_CMD)" >> $@ ; \
+	if [ -n "$(DIRS)" ] ; then \
+		echo ".PHONY: $(DIRS)" > $@ ; \
+		echo "$(DIRS): " >> $@ ; \
+		echo "	\$(value MK_CMD)" >> $@ ; \
+	fi; \
 	if [ -n "$(DEPS)" ] ; then \
 		cat $(DEPS) >> $@ ; \
 	fi ;

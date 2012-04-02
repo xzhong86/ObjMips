@@ -5,7 +5,7 @@
 #include <smp_io.h>
 #include <command.h>
 
-#include "test-head.h"
+#include <test/test-head.h>
 
 extern struct test_entity __test_entity_start[];
 extern struct test_entity __test_entity_stop[];

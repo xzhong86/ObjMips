@@ -35,7 +35,7 @@ DIRS	= $(patsubst %/,%,$(filter %/, $(obj-y)))
 MAKE	= make --no-print-directory
 MAKE	+= ROOT=$(ROOT) --makefile $(ROOT)/script/makefile
 
-v_mk_cmd = $(MAKE) -C $@
+v_mk_cmd = $(MAKE) -C $@ all
 v_ld_cmd = $(LD) $(BUILTFLAG) -r -o $@ $(OBJS)
 v_cc_cmd = $(GCC) $(ALLFLAGS) -c $< -o $@
 v_as_cmd = $(GCC) $(ALLFLAGS) -D__ASSEMBLY__ -c $< -o $@

@@ -72,7 +72,7 @@ int mm_fault(unsigned long addr, int read)
 	arch_spin_unlock(&mem_manager.lock);
 	return i;
 }
-static int add_mem_pfn(unsigned pfn, int nrpage, 
+static int map_mem_pfn(unsigned pfn, int nrpage, 
 		       unsigned long uaddr, unsigned pg_attr)
 {
 	int i, j, n, pairs, err = -1;
@@ -128,7 +128,7 @@ out:
 		smp_ipi_func(0xff, flush_tlb_entry);
 	return err;
 }
-int remove_mem_range(unsigned long uaddr)
+int unmap_mem_range(unsigned long uaddr)
 {
 	int i,j;
 	uaddr = uaddr & PAGE_MASK;
@@ -152,7 +152,7 @@ int remove_mem_range(unsigned long uaddr)
 	return i;
 }
 
-int add_mem_range(unsigned long addr, int len, 
+int map_mem_range(unsigned long addr, int len, 
 		  unsigned long uaddr, unsigned pg_attr)
 {
 	unsigned long start,end = addr + len;
@@ -161,9 +161,9 @@ int add_mem_range(unsigned long addr, int len,
 		return -1;
 	start = K0_TO_PHYS(addr)/PAGE_SIZE;
 	end = (K0_TO_PHYS(end) + PAGE_SIZE -1)/PAGE_SIZE;
-	return add_mem_pfn(start, end-start, uaddr & PAGE_MASK, pg_attr);
+	return map_mem_pfn(start, end-start, uaddr & PAGE_MASK, pg_attr);
 }
-int add_mem_high(unsigned long phy, int len, 
+int map_mem_high(unsigned long phy, int len, 
 		 unsigned long uaddr, unsigned pg_attr)
 {
 	unsigned long start,end = phy + len;
@@ -172,7 +172,7 @@ int add_mem_high(unsigned long phy, int len,
 		return -1;
 	end = (end + PAGE_SIZE -1)/PAGE_SIZE;
 	start = phy/PAGE_SIZE;
-	return add_mem_pfn(start, end-start, uaddr & PAGE_MASK, pg_attr);
+	return map_mem_pfn(start, end-start, uaddr & PAGE_MASK, pg_attr);
 }
 
 int mmu_init(void)

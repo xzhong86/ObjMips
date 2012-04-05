@@ -1,0 +1,12 @@
+
+for mipsisa32- toolchain, 
+PREFIX	= mipsisa32-
+CFLAGS	= -EL -mips32
+BUILTFLAG = -EL -m elf32ltsmip
+in base/sys.c
+//typedef unsigned int time_t;
+in test/smp_test/Makefile
+#obj-y += tst_atomic5.c
+in lib/link.lds
+OUTPUT_FORMAT("elf32-littlemips")
+

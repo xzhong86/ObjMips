@@ -12,6 +12,7 @@ extern void cpu_wait(void);
 	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
 	(type *)( (char *)__mptr - offsetof(type,member) );})
 
+#define ALIGN_TO(var, align) (((var)+(align)-1)&((align)-1))
 
 #ifndef __used
 # define __used	__attribute__((__used__))

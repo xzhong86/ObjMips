@@ -96,8 +96,8 @@ int test_uca(void)
 	int len = CACK0_SIZE / sizeof(int);
 	int val;
 
-	add_mem_range(CACK0_BASE, CACK0_SIZE, UNCAC_BASE, PG_UNCACHE);
-	add_mem_range(CACK0_BASE, CACK0_SIZE, UCA_BASE, PG_UCA);
+	map_mem_range(CACK0_BASE, CACK0_SIZE, UNCAC_BASE, PG_UNCACHE);
+	map_mem_range(CACK0_BASE, CACK0_SIZE, UCA_BASE, PG_UCA);
 
 	blast_dcache();
 
@@ -118,8 +118,8 @@ int test_uca(void)
 	test_write(p_cac, len, val);
 	test_read(p_cac, len, val);
 
-	remove_mem_range(UNCAC_BASE);
-	remove_mem_range(UCA_BASE);
+	unmap_mem_range(UNCAC_BASE);
+	unmap_mem_range(UCA_BASE);
 
 	return 0;
 }

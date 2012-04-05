@@ -364,8 +364,6 @@ void smp_ipi_interrupt(void)
 		((void (*)(void))mbox)();
 	else if(type == SMP_IPI_CALLFUN)
 		int_call_func();
-	else if(type == SMP_IPI_MBOX)
-		mbox_ipi_entry(mbox);
 	
 }
 

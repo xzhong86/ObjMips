@@ -13,7 +13,7 @@ int usrmap_test(void)
 	p = (int*)malloc(size);
 	up = TO_USR(p);
 
-	e = add_mem_range((unsigned long)p, size, (unsigned)up, PG_NORMAL);
+	e = map_mem_range((unsigned long)p, size, (unsigned)up, PG_NORMAL);
 	printk("User map test %p %d @ %p %d\n",p,size,up,e);
 	
 	printk("set 11111111 in k0\n");
@@ -36,7 +36,7 @@ int usrmap_test(void)
 		e += p[i] != 22222222 + i;
 	printk(" %d error\n",e);
 
-	remove_mem_range((unsigned)up);
+	unmap_mem_range((unsigned)up);
 	printk("free %p\n",p);
 	free(p);
 	return 0;

@@ -23,13 +23,16 @@
 #define PG_THROUGH	((CCA_THROUGH << 3) | PG_Write | PG_Valid)
 #define PG_UCA		((CCA_UCA << 3) | PG_Write | PG_Valid)
 
-int add_mem_range(unsigned long addr, int len, 
+int map_mem_range(unsigned long addr, int len, 
 		  unsigned long uaddr, unsigned pg_attr);
-int add_mem_high(unsigned long phy, int len, 
+int map_mem_high(unsigned long phy, int len, 
 		 unsigned long uaddr, unsigned pg_attr);
 
-int remove_mem_range(unsigned long uaddr);
+int unmap_mem_range(unsigned long uaddr);
 
 void mmu_dump_tlb(void);
+
+
+extern unsigned long max_low_pfn;
 
 #endif

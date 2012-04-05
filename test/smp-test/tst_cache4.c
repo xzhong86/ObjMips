@@ -150,7 +150,7 @@ int test_cache4(void)
 	datas = (typeof(datas))malloc(size);
 	printk("datas %p %d\n",datas,size);
 #ifdef  USR_BASE
-	add_mem_range((unsigned)datas, size, (unsigned)TO_USR(datas), PG_NORMAL);
+	map_mem_range((unsigned)datas, size, (unsigned)TO_USR(datas), PG_NORMAL);
 #endif
 
 	set_start = 0;
@@ -168,7 +168,7 @@ int test_cache4(void)
 	ret = fun_main();
 	smp_fun_wait(slavemask);
 #ifdef  USR_BASE
-	remove_mem_range((unsigned)TO_USR(datas));
+	unmap_mem_range((unsigned)TO_USR(datas));
 #endif
 	free(datas);
 	return ret;

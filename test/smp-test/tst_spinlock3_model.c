@@ -214,7 +214,7 @@ int TEST_FUN(void)
 		return -1;
 	}
 	lcnts = (typeof(lcnts))malloc(size);
-	//ret = add_mem_range((unsigned)lcnts, size, (unsigned)TO_USR(lcnts));
+	//ret = map_mem_range((unsigned)lcnts, size, (unsigned)TO_USR(lcnts));
 	//if (ret)
 	//	goto free_m;
 	printk("lock_cnt num: %d @ %p, lock_cnt size: %d\n",
@@ -253,7 +253,7 @@ int TEST_FUN(void)
 	ret = main_test();
 	smp_fun_wait(slavemask);
 	
-	//remove_mem_range((unsigned)TO_USR(lcnts));
+	//unmap_mem_range((unsigned)TO_USR(lcnts));
 //free_m:
 	free(lcnts);
 	return ret;

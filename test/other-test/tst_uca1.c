@@ -215,11 +215,11 @@ int test_uca1(void)
 	int i;
 
 	base = base + MBLK_SIZE;
-	add_mem_range(base, MBLK_SIZE, UNCAC_BASE, PG_UNCACHE);
+	map_mem_range(base, MBLK_SIZE, UNCAC_BASE, PG_UNCACHE);
 	base = base + MBLK_SIZE;
-	add_mem_range(base, MBLK_SIZE, UCA_BASE, PG_UCA);
+	map_mem_range(base, MBLK_SIZE, UCA_BASE, PG_UCA);
 	base = base + MBLK_SIZE;
-	add_mem_range(base, MBLK_SIZE, CAC_BASE, PG_NORMAL);
+	map_mem_range(base, MBLK_SIZE, CAC_BASE, PG_NORMAL);
 
 	mywrite(64, 0, 0, p_src, p_src, 0x5a5aa5a5, len);
 	test_copy(p_uncac, p_src, len);
@@ -241,9 +241,9 @@ int test_uca1(void)
 	for (i = 0; i < 8; i ++) 
 		crosscheck(p_uca, p_cac, p_uncac, rand(), len);
 
-	remove_mem_range(UNCAC_BASE);
-	remove_mem_range(UCA_BASE);
-	remove_mem_range(CAC_BASE);
+	unmap_mem_range(UNCAC_BASE);
+	unmap_mem_range(UCA_BASE);
+	unmap_mem_range(CAC_BASE);
 
 	return 0;
 }

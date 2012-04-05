@@ -9,5 +9,3 @@ obj-y += memory.o
 
 obj-y += smp-test/
 obj-y += other-test/
-
-

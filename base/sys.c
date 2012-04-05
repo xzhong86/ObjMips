@@ -4,6 +4,7 @@
 
 #include <base.h>
 #include <smp_io.h>
+#include <cache.h>
 #include "time.h"
 
 int sys_gettimeofday(struct timeval *tv,struct timezone *tz)
@@ -32,4 +33,18 @@ int sys_exit(int exit_code)
 	while(1) {
 		cpu_wait();
 	}
+}
+
+/* from mips sim interp.c
+ * void get_mem_info(unsigned int *ptr)
+ * in:  A0 = pointer to three word memory location 
+ * out: [A0 + 0] = size 
+ *      [A0 + 4] = instruction cache size 
+ *      [A0 + 8] = data cache size 
+ */
+void sys_get_mem_info(unsigned int *ptr)
+{
+	ptr[0] = 0x800000; // 8MB
+	ptr[1] = L1_icache.size;
+	ptr[2] = L1_dcache.size;
 }

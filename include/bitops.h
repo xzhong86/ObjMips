@@ -168,12 +168,16 @@ static inline int fls(int x)
 /*
  * ffs - find first bit set.
  * @word: The word to search
+ * 
+ * Note: fls(0) = 0, fls(1) = 1 
+ * fls(0x80000000) = 32,
+ * fls(0x80000001) = 1,
  *
  * This is defined the same way as
  * the libc and compiler builtin ffs routines, therefore
  * differs in spirit from the above ffz (man ffs).
  */
-static inline int ffs(int word)
+static inline int _ffs(int word)
 {
 	if (!word)
 		return 0;

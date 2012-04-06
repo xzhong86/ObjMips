@@ -52,8 +52,8 @@ int intc_get_no(void)
 int intc_tst_no(unsigned int sr1,unsigned int sr0)
 {
 	if(sr0)
-		return ffs(sr0) -1;
+		return _ffs(sr0) -1;
 	if(sr1) 
-		return ffs(sr1) -1 + 32;
+		return _ffs(sr1) -1 + 32;
 	return 0;
 }

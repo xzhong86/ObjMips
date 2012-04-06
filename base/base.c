@@ -18,15 +18,17 @@ int per_cpu_init_0(void)
 }
 extern int setup_trap(void);
 extern int cache_init(void);
+extern int mem_init(void);
 extern int mmu_init(void);
 static void soft_init(void)
 {
 	//blast_cache_all();
 	per_cpu_init_0();
 	cache_init();
-	mmu_init();
 	setup_smp();
 	setup_trap();
+	mem_init();
+	mmu_init();
 	smp_printf("soft_init() finished.\n");
 }
 

@@ -35,4 +35,10 @@ void mmu_dump_tlb(void);
 
 extern unsigned long max_low_pfn;
 
+struct page;
+int mem_free_pages(struct page *pages, int nr);
+struct page * mem_get_pages(int nr, unsigned flag);
+
+void mem_dump_buddy(void);
+
 #endif

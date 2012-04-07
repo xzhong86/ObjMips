@@ -3,7 +3,6 @@
 #include <stdio.h>
 
 #include <base.h>
-#include <smp_io.h>
 #include <cache.h>
 #include "time.h"
 
@@ -28,7 +27,7 @@ time_t sys_time(time_t *t)
 
 int sys_exit(int exit_code)
 {
-	smp_printf("[SYS] Program exit, with code = %d.\n",exit_code);
+	printk("[SYS] Program exit, with code = %d.\n",exit_code);
 	//cpu_idle();
 	while(1) {
 		cpu_wait();

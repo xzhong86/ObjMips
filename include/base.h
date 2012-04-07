@@ -7,8 +7,6 @@ int mmu_init(void);
 
 extern void cpu_wait(void);
 
-#define printk(args...) smp_printf(args)
-
 #undef offsetof
 #ifdef __compiler_offsetof
 #define offsetof(TYPE,MEMBER) __compiler_offsetof(TYPE,MEMBER)
@@ -20,7 +18,14 @@ extern void cpu_wait(void);
 	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
 	(type *)( (char *)__mptr - offsetof(type,member) );})
 
+
 #define ALIGN_TO(var, align) (((var)+(align)-1)&~((align)-1))
+
+
+/* printk and other print about */
+void printk(char *fmt, ...) __attribute__ ((__format__ (__printf__, 1, 2)));
+void ncsim_error_addr(void *a0,void *a1,void *a2,void *a3);
+
 
 #ifndef __used
 # define __used	__attribute__((__used__))

@@ -39,4 +39,7 @@ distclean: _distclean
 	rm -f mini dump uImage; 
 
 include script/make-com.mk
+
+ifeq (,$(filter clean distclean,$(MAKECMDGOALS)))
 include .depend
+endif

@@ -38,7 +38,7 @@ static int main_test(void)
 
 	smp_msg_receive(&msg);   //  <3
 	ret += msg;
-	PRINTF("cache3 test, ret:%d\n",ret);
+	printk("cache3 test, ret:%d\n",ret);
 	if(ret) return -1;
 
 	return 0;

@@ -30,7 +30,7 @@ static int main_test(void)
 
 	smp_msg_receive(&msg);   //  <2
 
-	PRINTF("cache2 test, cyc:%d\n",rc);
+	printk("cache2 test, cyc:%d\n",rc);
 	if(msg==0) return -1;
 
 	return 0;

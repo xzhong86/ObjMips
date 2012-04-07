@@ -4,12 +4,12 @@ static int self_test(void)
 {
 	void *p1,*p2,*p3;
 #if 1
-	PRINTF("var &p1=%p\n",&p1);
+	printk("var &p1=%p\n",&p1);
 	p1 = pcpu_malloc(16);
 	pcpu_free(p1);
 	p2 = pcpu_malloc(8);
 	pcpu_free(p2);
-	PRINTF("[test 1] p1:%p  p2:%p\n",p1,p2);
+	printk("[test 1] p1:%p  p2:%p\n",p1,p2);
 	if(p1 != p2) return -1;
 
 	p1 = pcpu_malloc(16);
@@ -18,7 +18,7 @@ static int self_test(void)
 	p3 = pcpu_malloc(5);
 	pcpu_free(p2);
 	pcpu_free(p3);
-	PRINTF("[test 2] p1:%p  p2:%p  p3:%p\n",p1,p2,p3);
+	printk("[test 2] p1:%p  p2:%p  p3:%p\n",p1,p2,p3);
 	if(p1 != p3) return -1;
 #endif
 	p1 = pcpu_malloc(160);
@@ -35,7 +35,7 @@ static int self_test(void)
 	pcpu_free(p3);
 	pcpu_free(p1);
 	pcpu_dump();
-	PRINTF("[test 3] p1:%p  p2:%p  p3:%p\n",p1,p2,p3);
+	printk("[test 3] p1:%p  p2:%p  p3:%p\n",p1,p2,p3);
 	
 	return 0;
 }

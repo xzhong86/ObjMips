@@ -31,14 +31,14 @@ static int main_test(void)
 	arch_spin_lock(&lcnt.lock);
 	smp_msg_send_other(1);   //   2>
 	smp_msg_receive(&msg);   //  <3
-	PRINTF("spinlock, locked test, %s\n",
+	printk("spinlock, locked test, %s\n",
 	       msg==0?"successed":"failed");
 	if(msg) return -1;
 
 	arch_spin_unlock(&lcnt.lock);
 	smp_msg_send_other(1);   //   4>
 	smp_msg_receive(&msg);   //  <5
-	PRINTF("spinlock, unlocked test, %s\n",
+	printk("spinlock, unlocked test, %s\n",
 	       msg==1?"successed":"failed");
 	if(msg != 1) return -1;
 	

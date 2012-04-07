@@ -42,8 +42,8 @@ static int check_blk(struct mem_blk *blk)
 	
 	for(i=blk->start; i<blk->size/4; i+=blk->step) {
 		if(buf[i] != hash_val(seed,i)) {
-			PRINTF("check err at %p cpu%d\n",buf+i,cpu);
-			PRINTF("\tread %x, need %x\n",buf[i],hash_val(seed,i));
+			printk("check err at %p cpu%d\n",buf+i,cpu);
+			printk("\tread %x, need %x\n",buf[i],hash_val(seed,i));
 			ret ++;
 		}
 	}

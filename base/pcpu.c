@@ -1,9 +1,10 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "smp.h"
-#include "smp_io.h"
-#include "pcpu.h"
+
+#include <base.h>
+#include <pcpu.h>
+#include <smp.h>
 
 struct munit {
 	struct munit *next; // must be the first
@@ -145,11 +146,11 @@ void pcpu_dump(void)
 	struct munit *mp = mm->mhead;
 	int n = 0;
 	
-	smp_printf("[PCPU] dump mm info\n");
+	printk("[PCPU] dump mm info\n");
 	for(; mp; mp=mp->next) {
-		smp_printf("    %3d size:%-5d data:%p  ",
-			   n,mp->size,&mp->data[0]);
-		smp_printf("next:%p\n",mp->next);
+		printk("    %3d size:%-5d data:%p  ",
+		       n,mp->size,&mp->data[0]);
+		printk("next:%p\n",mp->next);
 		n++;
 	}
 }

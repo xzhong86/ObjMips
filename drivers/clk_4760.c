@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include <smp_io.h>
+#include <base.h>
 #include <clock.h>
 
 struct soc_clk_t {
@@ -48,15 +48,15 @@ unsigned int get_pclk_fre(void)
 void print_cpu_fre(void)
 {
 	if(soc_clk.pll == 0) get_clk_info();
-	PRINTF("print cpu frequency:\n");
-	PRINTF("m: %d, n: %d, no: %d\n",soc_clk.m,soc_clk.n,soc_clk.no);
-	PRINTF("extal: %dMHz, PLL out: %dMHz\n"
+	printk("print cpu frequency:\n");
+	printk("m: %d, n: %d, no: %d\n",soc_clk.m,soc_clk.n,soc_clk.no);
+	printk("extal: %dMHz, PLL out: %dMHz\n"
 	       ,JZ_EXTAL/1000000,soc_clk.pll/1000000);
-	PRINTF("CPU    CLK: %dMHz\n",soc_clk.cclk/1000000);
-	PRINTF("AHB0   CLK: %dMHz\n",soc_clk.hclk/1000000);
-	PRINTF("Per    CLK: %dMHz\n",soc_clk.pclk/1000000);
-	PRINTF("Memory CLK: %dMHz\n",soc_clk.mclk/1000000);
-	PRINTF("AHB2   CLK: %dMHz\n",soc_clk.h2clk/1000000);
-	PRINTF("SRAM   CLK: %dMHz\n",soc_clk.sclk/1000000);
+	printk("CPU    CLK: %dMHz\n",soc_clk.cclk/1000000);
+	printk("AHB0   CLK: %dMHz\n",soc_clk.hclk/1000000);
+	printk("Per    CLK: %dMHz\n",soc_clk.pclk/1000000);
+	printk("Memory CLK: %dMHz\n",soc_clk.mclk/1000000);
+	printk("AHB2   CLK: %dMHz\n",soc_clk.h2clk/1000000);
+	printk("SRAM   CLK: %dMHz\n",soc_clk.sclk/1000000);
 	return;
 }

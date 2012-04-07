@@ -9,7 +9,6 @@
 #include <mips.h>
 #include <bitops.h>
 #include <smp.h>
-#include <smp_io.h>
 
 #define MByte	(1024*1024)
 

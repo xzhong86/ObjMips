@@ -33,7 +33,7 @@ static int base_test(void)
 	tmp = LL(x);
 	tmp++;
 	tmp = SC(tmp,x);
-	PRINTF("[LL/SC base 1] x:%d, tmp:%d\n",x,tmp);
+	printk("[LL/SC base 1] x:%d, tmp:%d\n",x,tmp);
 	if(x==0 || tmp==0) return -1;
 
 	int a,b;
@@ -44,10 +44,10 @@ static int base_test(void)
 	b += 2;
 	b = SC(b,x);
 	a = SC(a,x);
-	PRINTF("[LL/SC base 2] x:%d, a:%d, b:%d\n",x,a,b);
+	printk("[LL/SC base 2] x:%d, a:%d, b:%d\n",x,a,b);
 //	if(b==0 || a!=0 || x!=2) return -1;
 	if(b==0 || a!=0 || x!=2) 
-		PRINTF("[LL/SC base 2] error\n");
+		printk("[LL/SC base 2] error\n");
 
 	int t0,t1,t2;
 	x=0;
@@ -60,11 +60,11 @@ static int base_test(void)
 	t2 = SC(t2,z);
 	t1 = SC(t1,y);
 	t0 = SC(t0,x);
-	PRINTF("[LL/SC base 3] x:%d, y:%d, z:%d\n",x,y,z);
+	printk("[LL/SC base 3] x:%d, y:%d, z:%d\n",x,y,z);
 	if(t2==0 || t1!=0 || t0!=0 || x!=0 || y!=0 || z!=3)
 		return -1;
 
-	PRINTF("[LL/SC base] test passed!\n");
+	printk("[LL/SC base] test passed!\n");
 	return 0;
 }
 

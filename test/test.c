@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <smp_io.h>
 #include <command.h>
 
 #include <test/test-head.h>

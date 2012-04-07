@@ -57,22 +57,22 @@ static int main_test(void)
 	for(i=0;i<ARR_NUM;i++) {
 		if(i%2 == 0) {
 			if(sh.char_arr[i] != 100){
-				PRINTF("sh.char_arr[%d]:%d.\n",i,sh.char_arr[i]);
+				printk("sh.char_arr[%d]:%d.\n",i,sh.char_arr[i]);
 				ret++;
 			}
 			if(sh.sht_arr[i] != 100){
-				PRINTF("sh.sht_arr[%d]:%d.\n",i,sh.sht_arr[i]);
+				printk("sh.sht_arr[%d]:%d.\n",i,sh.sht_arr[i]);
 				ret++;
 			}
 			//	ret += sh.char_arr[i] != 100;
 			//	ret += sh.sht_arr[i] != 100;
 		} else {
 			if(sh.char_arr[i] != -100){
-				PRINTF("sh.char_arr[%d]:%d.\n",i,sh.char_arr[i]);
+				printk("sh.char_arr[%d]:%d.\n",i,sh.char_arr[i]);
 				ret++;
 			}
 			if(sh.sht_arr[i] != -100){
-				PRINTF("sh.sht_arr[%d]:%d,address: %p.\n",i,sh.sht_arr[i],(void *)&sh.sht_arr[i]);
+				printk("sh.sht_arr[%d]:%d,address: %p.\n",i,sh.sht_arr[i],(void *)&sh.sht_arr[i]);
 				ret++;
 			}
 			//	ret += sh.char_arr[i] != -100;
@@ -80,21 +80,21 @@ static int main_test(void)
 		}
 	}
 	if(sh.int_arr[0] != 100*ARR_NUM ){
-		PRINTF("sh.int_arr[0]:%d.\n",sh.int_arr[0]);
+		printk("sh.int_arr[0]:%d.\n",sh.int_arr[0]);
 		ret++;
 	}
 	if(sh.int_arr[1] != -100*ARR_NUM ){
-		PRINTF("sh.int_arr[1]:%d.\n",sh.int_arr[1]);
+		printk("sh.int_arr[1]:%d.\n",sh.int_arr[1]);
 		ret++;
 	}
 //	ret += sh.int_arr[0] != 100*ARR_NUM;
 //	ret += sh.int_arr[1] != -100*ARR_NUM;
 	if(ret) {
-		PRINTF("cache0 test failed, ret:%d\n",ret);
+		printk("cache0 test failed, ret:%d\n",ret);
 		return -1;
 	}
 	
-	PRINTF("cache0 test passed!\n");
+	printk("cache0 test passed!\n");
 	return 0;
 }
 

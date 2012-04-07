@@ -121,7 +121,7 @@ static int main_test(void)
 	smp_msg_receive(&msg);
 	loop_fun(arr);
 	smp_msg_receive(&msg);
-	PRINTF("spinlock add %d times, counter=%d\n"
+	printk("spinlock add %d times, counter=%d\n"
 	       ,2*TIMES*LOOPS,lcnt.counter1);
 	if(2*TIMES*LOOPS != lcnt.counter1)
 		ret = -1;
@@ -150,12 +150,12 @@ static int ipi_add_test(void)
 	for(i=0; i<2000; i++) {
 		add00();
 		if(0 && counter.counter != i*5+5) {
-			PRINTF("loop %d: counter=%d,fix it!\n"
+			printk("loop %d: counter=%d,fix it!\n"
 			       ,i,counter.counter);
 			counter.counter = i*5+5;
 		}
 	}
-	PRINTF("ipi_add_test add %d times, counter=%d\n"
+	printk("ipi_add_test add %d times, counter=%d\n"
 	       ,5*2000,counter.counter);
 	return 0;
 }
@@ -169,7 +169,7 @@ static int spin_ipi_test(void)
 	int i;
 	for(i=0; i<100; i++)
 		smp_ipi_func_spec(0x2,empty_fun);
-	PRINTF("spin_ipi_test pass\n");
+	printk("spin_ipi_test pass\n");
 	return 0;
 }
 

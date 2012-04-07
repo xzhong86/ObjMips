@@ -42,7 +42,7 @@ static int fun_main(void)
 		arr[i] = counter;
 	}
 	smp_msg_receive(&msg);
-	PRINTF("cache1 add %d times, counter=%d, counter2=%d\n"
+	printk("cache1 add %d times, counter=%d, counter2=%d\n"
 	       ,2*TIMES*LOOPS,counter,counter2);
 	if(2*TIMES*LOOPS == counter && counter == counter2)
 		ret = -1;

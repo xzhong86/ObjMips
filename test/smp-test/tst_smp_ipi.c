@@ -29,12 +29,12 @@ static int test_base_ipi(void)
 	while(fun1_val != 3) {
 		if(val != fun1_val) {
 			val = fun1_val;
-			//PRINTF("val: %d\n",val);
+			//printk("val: %d\n",val);
 		}
 	}
 	pmon_get_cnt32(lc,rc);
 	
-	PRINTF("ipi message take %d cpu cyc\n",rc);
+	printk("ipi message take %d cpu cyc\n",rc);
 	return 0;
 }
 
@@ -43,12 +43,12 @@ volatile static int fun2_val;
 static void fun2_cpu0(void)
 {
 	fun2_val = 1;
-	//PRINTF("fun2_cpu0\n");
+	//printk("fun2_cpu0\n");
 }
 static void fun2_cpu1(void)
 {
 	smp_ipi_func(0x1,fun2_cpu0);
-	//PRINTF("fun2_cpu1\n");
+	//printk("fun2_cpu1\n");
 }
 static int test_wakeup(void)
 {
@@ -56,11 +56,11 @@ static int test_wakeup(void)
 	smp_ipi_func(0x2,fun2_cpu1);
 	cpu_wait();
 	if(fun2_val == 0) {
-		PRINTF("sleep failed\n");
+		printk("sleep failed\n");
 		while(fun2_val == 0) ;
 		return -1;
 	}
-	PRINTF("wake up successed\n");
+	printk("wake up successed\n");
 	return 0;
 }
 

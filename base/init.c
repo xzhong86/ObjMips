@@ -1,6 +1,6 @@
 
 #include <stdio.h>
-#include <smp_io.h>
+#include <base.h>
 #include <init.h>
 
 extern struct __initcall_entity __initcall_entity_start[];

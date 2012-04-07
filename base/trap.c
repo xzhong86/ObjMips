@@ -4,8 +4,7 @@
 #include <mips_inst.h>
 #include <irq.h>
 #include <smp.h>
-#include <smp_io.h>
-#include <smp_stat.h>
+#include <base.h>
 
 static void show_regs(struct cpu_regs *reg);
 static void show_code(struct cpu_regs *reg);
@@ -29,7 +28,6 @@ void trap_entry(unsigned long *regs, unsigned int status)
 	unsigned int code;
 	unsigned int epc,inst,x;
 
-	SMP_STAT_FUNC();
 	reg.saved_regs = regs;
 	reg.cp0_status = status;
 	reg.cp0_cause  = read_c0_cause();

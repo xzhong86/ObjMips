@@ -1,7 +1,7 @@
 
 #include <stdio.h>
 
-#include <smp_io.h>
+#include <base.h>
 #include <pcpu.h>
 #include <smp.h>
 #include <smp_msg.h>

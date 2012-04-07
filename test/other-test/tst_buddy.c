@@ -1,6 +1,6 @@
 
 #include <stdio.h>
-#include <smp_io.h>
+#include <base.h>
 
 #include <mem.h>
 #include <test/test-head.h>

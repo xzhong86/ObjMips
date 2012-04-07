@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include <smp_io.h>
+#include <base.h>
 #include <pmon.h>
 
 #define _print_val(val) __print_val(val)
@@ -11,30 +11,30 @@ int _pmon_report(int event)
 	pmon_get_cnt64(lc,rc);
 	
 	if(event == PMON_EVENT_CACHE) {
-		smp_printf("Pmon report, event CACHE.\n");
-		smp_printf(" cache miss. i-cc: ");
+		printk("Pmon report, event CACHE.\n");
+		printk(" cache miss. i-cc: ");
 		_print_val(lc);
-		smp_printf(", d-cc: ");
+		printk(", d-cc: ");
 		_print_val(rc);
-		smp_printf("\n");
+		printk("\n");
 	}
 	else if(event == PMON_EVENT_CYCLE) {
-		smp_printf("Pmon report, event CYCLE.\n");
-		smp_printf(" freeze cycle: ");
+		printk("Pmon report, event CYCLE.\n");
+		printk(" freeze cycle: ");
 		_print_val(lc);
-		smp_printf(", total cycle: ");
+		printk(", total cycle: ");
 		_print_val(rc);
 		unsigned long long rate = lc * 10000 / rc;
-		smp_printf("  (%lld%%%%)\n",rate);
+		printk("  (%lld%%%%)\n",rate);
 	}
 	else if(event == PMON_EVENT_INST) {
-		smp_printf("Pmon report, event INST.\n");
-		smp_printf(" useless insn: ");
+		printk("Pmon report, event INST.\n");
+		printk(" useless insn: ");
 		_print_val(lc);
-		smp_printf(", total insn: ");
+		printk(", total insn: ");
 		_print_val(rc);
 		unsigned long long rate = (lc * 10000) / rc;
-		smp_printf("  (%lld%%%%)\n",rate);
+		printk("  (%lld%%%%)\n",rate);
 	}
 
 	return 0;
@@ -54,6 +54,6 @@ static void __print_val(unsigned long long val)
 		str[i] = buf[n-i-1];
 	
 	str[i] = '\0';
-	smp_printf("%s",str);
+	printk("%s",str);
 }
 

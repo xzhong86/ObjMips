@@ -1,6 +1,5 @@
+
 #include <stdio.h>
-#include <smp_stat.h>
-#include <smp_io.h>
 #include <base.h>
 #include <cui.h>
 

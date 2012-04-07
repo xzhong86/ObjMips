@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <smp.h>
-#include <smp_io.h>
+#include <base.h>
 #include <linux/spinlock.h>
 #include <mem.h>
 #include <mips.h>

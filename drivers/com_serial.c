@@ -11,9 +11,9 @@
  * common serial code, use uart which inited by uboot.
  */
 
+#include <base.h>
 #include "jz_serial.h"
 #include "serial.h"
-#include <smp_io.h>
 
 typedef unsigned char u8;
 typedef unsigned short u16;
@@ -54,7 +54,7 @@ static int serial_init (void)
 	/* change UART_PORT with chk value. */
 	serial_chk();
 	serial_puts("Init common serial.\n");
-	PRINTF("printf in serial init.\n");
+	printk("printf in serial init.\n");
 	return 0;
 }
 

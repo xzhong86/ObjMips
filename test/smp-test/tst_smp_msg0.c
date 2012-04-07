@@ -19,7 +19,7 @@ static int main_test(void)
 {
 	int ret,msg,stp=0;
 	smp_msg_receive(&msg);
-	PRINTF("received msg from slave:%d\n",msg);
+	printk("received msg from slave:%d\n",msg);
 	stp++;
 	if(msg != 1) goto failed;
 
@@ -51,11 +51,11 @@ static int main_test(void)
 	stp++;
 	if(ret == 0) goto failed;
 
-	PRINTF("smp_msg test passed!\n");
+	printk("smp_msg test passed!\n");
 	return 0;
 
 failed:
-	PRINTF("test failed at step%d\n",stp);
+	printk("test failed at step%d\n",stp);
 	return -1;
 }
 

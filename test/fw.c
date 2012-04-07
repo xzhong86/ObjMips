@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include <smp.h>
-#include <smp_io.h>
+#include <base.h>
 #include <spinlock.h>
 
 #include <test/fw.h>

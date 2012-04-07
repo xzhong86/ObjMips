@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <smp_io.h>
+#include <base.h>
 #include <command.h>
 
 static void write_words(unsigned int addr, int wds, unsigned int val)

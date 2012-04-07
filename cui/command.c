@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <smp_io.h>
+#include <base.h>
 #include <command.h>
 
 static struct __command_entity **cmds_tbl;

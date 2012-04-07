@@ -1,5 +1,5 @@
 #include <smp.h>
-#include <smp_io.h>
+#include <base.h>
 #include <irq.h>
 #include <intc.h>
 #include <dma.h>

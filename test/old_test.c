@@ -26,12 +26,12 @@ static void jz_mem_test_one(
 	unsigned int addr = start;
 	unsigned int end  = addr + len;
 	char *p = (char *)addr;
-	PRINTF("test addr: %p\n",p);
+	printk("test addr: %p\n",p);
 	while(p < (char*)end) {
 		val += (*p) % 16;
 		p += step / sizeof(*p);
 	}
-	PRINTF("test end: %p\n",p);
+	printk("test end: %p\n",p);
 }
 static void jz_mem_test(void) 
 {

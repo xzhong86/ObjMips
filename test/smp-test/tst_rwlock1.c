@@ -57,7 +57,7 @@ static int main_test(void)
 	smp_msg_receive(&msg);
 	loop_fun(arr,1);
 	smp_msg_receive(&msg);
-	PRINTF("rwlock add %d times, counter=%d\n"
+	printk("rwlock add %d times, counter=%d\n"
 	       ,2*TIMES*LOOPS,lcnt.counter);
 	if(2*TIMES*LOOPS != lcnt.counter)
 		ret = -1;

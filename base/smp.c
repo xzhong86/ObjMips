@@ -6,10 +6,9 @@
 #include <mips_inst.h>
 #include <irq.h>
 #include <smp.h>
-#include <smp_io.h>
+#include <base.h>
 #include <smp_msg.h>
 #include <smp_fun.h>
-#include <smp_stat.h>
 #include <pcpu.h>
 
 #ifdef CONFIG_SMP
@@ -147,7 +146,7 @@ static int prepare_cpus(int max_cpus)
 	ctrl = get_smp_ctrl();
 	ctrl &= ~((1 << max_cpus) -1);   // clear ctrl.SW_RST1
 	set_smp_ctrl(ctrl);
-	smp_printf("smp ctrl  : %08x\n",get_smp_ctrl());
+	printk("smp ctrl  : %08x\n",get_smp_ctrl());
 
 	p = K0_TO_K1(&cpu_ready);
 	do {
@@ -200,7 +199,6 @@ int setup_smp(void)
 
 static void smp_cpu_idle(void)
 {
-	SMP_STAT_FUNC();
 	SMP_FLAG = SMP_FLAG_IDLE;
 	while(1) {
 		smp_fun_run();
@@ -222,7 +220,6 @@ static void secondary_trap(void)
 void start_secondary(void)
 {
 	void (*fun)(void);
-	SMP_STAT_FUNC();
 	per_cpu_init_0();
 	secondary_trap();
 	SMP_FLAG = 5;
@@ -341,8 +338,6 @@ void smp_ipi_interrupt(void)
 	int cpu = smp_cpu_id();
 	unsigned int type,mbox = 0;
 
-	SMP_STAT_FUNC();
-	
 	smp_spinlock();
 	switch (cpu) {
 #define CASE(CPU)					\

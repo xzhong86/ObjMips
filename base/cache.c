@@ -1,5 +1,5 @@
 #include <cache.h>
-#include <smp_io.h>
+#include <base.h>
 
 struct cache_info L1_icache,L1_dcache,L2_cache;
 

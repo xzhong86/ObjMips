@@ -4,7 +4,7 @@
 #include <time.h>
 #include <clock.h>
 #include <config.h>
-#include <smp_io.h>
+#include <base.h>
 
 
 int pll_init(void);
@@ -16,7 +16,7 @@ int pm_init(void);
 int dma_init(void);
 
 //#define DBG_INIT(fun,ret) (0)
-#define DBG_INIT(fun,ret) PRINTF(#fun " %s\n",ret?"failed":"seuccess")
+#define DBG_INIT(fun,ret) printk(#fun " %s\n",ret?"failed":"seuccess")
 
 int drivers_init(void)
 {
@@ -62,17 +62,17 @@ void hardware_init_fun(void)
 	ret = drivers_init();
 
 	//ost_wait_usec(100*1000);
-	PRINTF("        \n");
-	PRINTF("drivers_init() %s.\n",
+	printk("        \n");
+	printk("drivers_init() %s.\n",
 	       ret?"failed":"successed");
 
 	unsigned int fre = get_cpu_fre();
-	PRINTF("jz4760 @ %dMHz\n",fre/1000000);
+	printk("jz4760 @ %dMHz\n",fre/1000000);
 	print_cpu_fre();
 	//pm_show_clkgr();
-	PRINTF("get ost cycs per second ...\n");
+	printk("get ost cycs per second ...\n");
 	fre = real_cyc_per_sec();
-	PRINTF("  %u ost cycs per second.\n",fre);
+	printk("  %u ost cycs per second.\n",fre);
 #endif
 }
 

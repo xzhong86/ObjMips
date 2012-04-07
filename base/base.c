@@ -3,7 +3,7 @@
 #include <mipsop.h>
 #include <cache.h>
 #include <smp.h>
-#include <smp_io.h>
+#include <base.h>
 #include <smp_msg.h>
 #include <smp_fun.h>
 #include <pcpu.h>
@@ -29,7 +29,7 @@ static void soft_init(void)
 	setup_trap();
 	mem_init();
 	mmu_init();
-	smp_printf("soft_init() finished.\n");
+	printk("soft_init() finished.\n");
 }
 
 extern void param_init(void);
@@ -49,8 +49,8 @@ void print_c0_regs(void)
 	ebase = read_c0_ebase();
 	epc = read_c0_epc();
 
-	smp_printf("status \t:%08x, cause\t:%08x\n",status,cause);
-	smp_printf("ebase  \t:%08x, epc  \t:%08x\n",ebase,epc);
+	printk("status \t:%08x, cause\t:%08x\n",status,cause);
+	printk("ebase  \t:%08x, epc  \t:%08x\n",ebase,epc);
 }
 
 void cpu_wait(void)

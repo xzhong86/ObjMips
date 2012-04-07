@@ -163,7 +163,7 @@ int test_chain0(void)
 	ret = check_result(&hash0);
 	if(ret) return ret;
 	ns = ost_cnt_to_nsec((unsigned int)c0);
-	PRINTF("chain reorder,UP mode,it takes %d nsecond.\n",ns);
+	printk("chain reorder,UP mode,it takes %d nsecond.\n",ns);
 
 #ifdef CONFIG_SMP
 	for(i=0;i<NODE_NUM;i++) 
@@ -176,7 +176,7 @@ int test_chain0(void)
 	ret = check_result(&hash1);
 	if(ret) return ret;
 	ns = ost_cnt_to_nsec((unsigned int)c1);
-	PRINTF("chain reorder,MP mode,it takes %d nsecond.\n",ns);
+	printk("chain reorder,MP mode,it takes %d nsecond.\n",ns);
 	if(hash0 != hash1) return -1;
 #endif
 

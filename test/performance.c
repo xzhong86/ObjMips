@@ -39,24 +39,24 @@ int cache_pref(void)
 	pmon_stop();
 	pmon_get_cnt32(icc[3],dcc[3]);
 
-	PRINTF("cache preformance: cache_pref()\n");
-	PRINTF("loop times: %d, insts: %d, cpu cyc: %d\n",num/inc,5,num*5/inc);
-	PRINTF("stage \ticc m\tdcc m\tcpu cyc\n");
-	PRINTF("stage 1\t%d\t%d\t%d\n",icc[1]-icc[0],dcc[1]-dcc[0]
+	printk("cache preformance: cache_pref()\n");
+	printk("loop times: %d, insts: %d, cpu cyc: %d\n",num/inc,5,num*5/inc);
+	printk("stage \ticc m\tdcc m\tcpu cyc\n");
+	printk("stage 1\t%d\t%d\t%d\n",icc[1]-icc[0],dcc[1]-dcc[0]
 	       ,(cnt[1]-cnt[0])*4);
-	PRINTF("stage 2\t%d\t%d\t%d\n",icc[2]-icc[1],dcc[2]-dcc[1]
+	printk("stage 2\t%d\t%d\t%d\n",icc[2]-icc[1],dcc[2]-dcc[1]
 	       ,(cnt[2]-cnt[1])*4);
-	PRINTF("stage 3\t%d\t%d\t%d\n",icc[3]-icc[2],dcc[3]-dcc[2]
+	printk("stage 3\t%d\t%d\t%d\n",icc[3]-icc[2],dcc[3]-dcc[2]
 	       ,(cnt[3]-cnt[2])*4);
 	int inc_cyc = ((cnt[2]-cnt[1]) - (cnt[1]-cnt[0]))*4;
 	int inc_ccm = (icc[2]-icc[1]+dcc[2]-dcc[1]) - (icc[1]-icc[0]+dcc[1]-dcc[0]);
 	float rate = (float)inc_cyc / (float)inc_ccm;
-	PRINTF("cost cyc per cc miss: %.3f\n",rate);
+	printk("cost cyc per cc miss: %.3f\n",rate);
 
 	inc_cyc = ((cnt[3]-cnt[2]) - (cnt[1]-cnt[0]))*4;
 	inc_ccm = 512;
 	rate = (float)inc_cyc / (float)inc_ccm;
-	PRINTF("cost cyc per access hard reg: %.3f\n",rate);
+	printk("cost cyc per access hard reg: %.3f\n",rate);
 
 	return 0;
 }
@@ -78,7 +78,7 @@ static unsigned int test_mem_copy(unsigned long addr, int size)
 	unsigned int i,loop;
 
 	loop = 768 * 32 * 16 * 1024 / size;
-	PRINTF("test mem copy %lx %dKB loop:%d\n",addr,size/1024,loop);
+	printk("test mem copy %lx %dKB loop:%d\n",addr,size/1024,loop);
 	pmon_prepare(PMON_EVENT_CYCLE);
 	//pmon_prepare(PMON_EVENT_CACHE);
 	//pmon_prepare(PMON_EVENT_INST);
@@ -117,7 +117,7 @@ int tlb_pref(void)
 	flush_tlb_entry();
 	test_mem_copy(kvaddr, size);
 
-	PRINTF("id pagemask   entryhi   entrylo0  entrylo1\n");
+	printk("id pagemask   entryhi   entrylo0  entrylo1\n");
 	for (i = 0; i < size/(PAGE_SIZE*2); i++) {
 		unsigned long pagemask = (PAGE_SIZE*2) - 1;
 		unsigned long entryhi, entrylo0, entrylo1;
@@ -131,7 +131,7 @@ int tlb_pref(void)
 		
 		uvaddr += (2*PAGE_SIZE);
 
-		PRINTF("%2d 0x%08lX 0x%08lX 0x%08lX 0x%08lX\n",
+		printk("%2d 0x%08lX 0x%08lX 0x%08lX 0x%08lX\n",
 		       i, pagemask, entryhi, entrylo0, entrylo1);
 		
 		write_c0_index(i);
@@ -146,7 +146,7 @@ int tlb_pref(void)
 	}
 
 	uvaddr = UVADDR;
-	PRINTF("memory copy test. page size %dKB\n",PAGE_SIZE/1024);
+	printk("memory copy test. page size %dKB\n",PAGE_SIZE/1024);
 	test_mem_copy(kvaddr, size);
 	test_mem_copy(uvaddr, size);
 	return 0;
@@ -159,7 +159,7 @@ int tlb_pref1(void)
 	int i;
 
 	__write_32bit_c0_register($5 ,4, 0xa9000000);
-	PRINTF("\n###### New TLB memory test ######\n");
+	printk("\n###### New TLB memory test ######\n");
 
 	int page_arr[8] = { 1,4,1,4,4,1,1,4};
 	for (i = 0; i < 8; i++) {
@@ -167,24 +167,24 @@ int tlb_pref1(void)
 		//unsigned mem_size = 64 * page_size;
 		unsigned mem_size = 256 * 1024;
 
-		PRINTF("\n------ New test period %dKB ------\n\n",
+		printk("\n------ New test period %dKB ------\n\n",
 		       page_size/1024);
 
-		PRINTF("---memory copy test before flush tlb\n");
+		printk("---memory copy test before flush tlb\n");
 		test_mem_copy(kvaddr, mem_size);
 		flush_tlb_entry();
 
-		PRINTF("---memory copy test before map tlb\n");
+		printk("---memory copy test before map tlb\n");
 		test_mem_copy(kvaddr, mem_size);
 		if (map_mem_tlb(uvaddr, paddr, page_size, mem_size))
 			break;
 
-		PRINTF("\nmemory copy test. page size %dKB\n",
+		printk("\nmemory copy test. page size %dKB\n",
 		       page_size/1024);
 		test_mem_copy(kvaddr, mem_size);
 		test_mem_copy(uvaddr, mem_size);
 
-		PRINTF("---memory copy test at last\n");
+		printk("---memory copy test at last\n");
 		test_mem_copy(kvaddr, mem_size);
 	}
 	return 0;
@@ -268,7 +268,7 @@ static void show_tlb_entry(void)
 		__asm__ __volatile__("tlbr");
 		__asm__ __volatile__("nop;nop;nop;nop;");
 
-		PRINTF("%2d %x %x %x %x\n",i,
+		printk("%2d %x %x %x %x\n",i,
 		       read_c0_pagemask(),
 		       read_c0_entryhi(),
 		       read_c0_entrylo0(),

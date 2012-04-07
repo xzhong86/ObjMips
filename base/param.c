@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <string.h>
-#include <smp_io.h>
 #include <base.h>
 
 #define isspace(c) ((c) == ' ' || (c) == '\t')

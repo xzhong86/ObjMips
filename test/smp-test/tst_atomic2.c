@@ -114,7 +114,7 @@ static int fun_main(void)
 	smp_msg_receive(&msg);
 	loop_fun0(arr);
 	smp_msg_receive(&msg);
-	PRINTF("atomic add %d times, counter=%d\n"
+	printk("atomic add %d times, counter=%d\n"
 	       ,2*TIMES*LOOPS*GEAR_TIMES,counter.counter);
 	if(2*TIMES*LOOPS*GEAR_TIMES != counter.counter)
 		ret = -1;

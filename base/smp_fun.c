@@ -3,7 +3,7 @@
 #include <pcpu.h>
 #include <smp.h>
 #include <smp_fun.h>
-#include <smp_io.h>
+#include <base.h>
 #include <bitops.h>
 #include <irq.h>
 

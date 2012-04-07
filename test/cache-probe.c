@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <smp_io.h>
+#include <base.h>
 #include <time.h>
 #include <pmon.h>
 //#include <cache.h>

@@ -5,8 +5,7 @@
 #include <irq.h>
 #include <intc.h>
 #include <smp.h>
-#include <smp_io.h>
-#include <smp_stat.h>
+#include <base.h>
 
 int setup_irq(void)
 {
@@ -29,7 +28,6 @@ void irq_entry(struct cpu_regs *reg)
 	int cpu = smp_cpu_id();
 	int irq;
 	
-	SMP_STAT_FUNC();
 	cs &= reg->cp0_status & 0xff00;
 	if(cs & 0x800) {
 		smp_ipi_interrupt();

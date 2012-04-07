@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <smp_io.h>
+#include <base.h>
 #include <console.h>
 #include <command.h>
 

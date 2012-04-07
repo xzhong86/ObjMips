@@ -1,6 +1,6 @@
 
 #include <stdio.h>
-#include <smp_io.h>
+#include <base.h>
 
 typedef unsigned int u32;
 int pm_init(void)
@@ -32,18 +32,18 @@ void pm_show_clkgr(void)
 	volatile u32 *clkgr1 = (u32*)0xB0000028;
 	int i,f;
 	
-	PRINTF("CLKGR0\t: %08x\n",*clkgr0);
-	PRINTF("CLKGR1\t: %08x\n",*clkgr1);
+	printk("CLKGR0\t: %08x\n",*clkgr0);
+	printk("CLKGR1\t: %08x\n",*clkgr1);
 
-	PRINTF("working modules: ");
+	printk("working modules: ");
 	for(i=0,f=1; i<32; i++,f<<=1)
 		if(!(*clkgr0 & f))
-			PRINTF("%s,",clkgr0strs[i]);
+			printk("%s,",clkgr0strs[i]);
 	
 	for(i=0,f=1; i<16; i++,f<<=1)
 		if(!(*clkgr1 & f))
-			PRINTF("%s,",clkgr1strs[i]);
+			printk("%s,",clkgr1strs[i]);
 	
-	PRINTF("\n");
+	printk("\n");
 }
 

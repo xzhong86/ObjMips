@@ -7,6 +7,8 @@ int mmu_init(void);
 
 extern void cpu_wait(void);
 
+#define printk(args...) smp_printf(args)
+
 #undef offsetof
 #ifdef __compiler_offsetof
 #define offsetof(TYPE,MEMBER) __compiler_offsetof(TYPE,MEMBER)

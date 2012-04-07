@@ -10,6 +10,12 @@ struct fw_dev {
 	void *priv;
 };
 
+typedef enum { 
+	CHK_PASSED, CHK_FAILED, 
+	/* return CHK_FINISHED will stop device without error */
+	CHK_FINISHED, 
+} chk_t;
+
 struct fw_ops {
 	/* called only once at first */
 	int  (*prepare)(struct fw_dev *);
@@ -26,7 +32,7 @@ struct fw_ops {
 	/* called after fw_finish() to check the test result, 
 	 * if successed return 0. and failed return -1;
 	 */
-	int  (*check)(struct fw_dev *);
+	chk_t (*check)(struct fw_dev *);
 
 	/* stop test, stop device, force! */
 	void (*stop)(struct fw_dev *);

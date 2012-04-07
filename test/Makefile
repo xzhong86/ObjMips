@@ -2,6 +2,9 @@
 
 obj-y = test.o cache-probe.o
 
+# test framework
+obj-y += fw.o
+
 #obj-y += performance.o usermap.o
 
 # test contain some command

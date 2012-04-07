@@ -65,9 +65,13 @@ static int tdev_statm(struct tdev *tdev)
 			tdev->ops->finished(&tdev->fwdev);
 
 		ret = tdev->ops->check(&tdev->fwdev);
-		if (ret) {
-			printk("[FW] %s test %d failed.\n",
-			       tdev->fwdev.name, tdev->times);
+		if (ret != CHK_PASSED) {
+			if (ret == CHK_FINISHED)
+				printk("[FW] %s test finish.\n",
+				       tdev->fwdev.name);
+			else
+				printk("[FW] %s test %d failed.\n",
+				       tdev->fwdev.name, tdev->times);
 			tdev->ops->stop(&tdev->fwdev);
 			tdev->state = ST_STOPPED;
 			break;
@@ -93,17 +97,19 @@ static int tdev_statm(struct tdev *tdev)
 int fw_test_loop(void)
 {
 	struct tdev *tdev;
-	int err = 0;
+	int err = 0, running;
 
 	do {
+		running = 0;
 		for (tdev = tdev_head; tdev; tdev = tdev->next) {
 			int cpu = smp_cpu_id();
 
-			if (tdev->flags & FLG_BUSY)
-				continue;
 			if (!(tdev->cpuallow & (1 << cpu)))
 				continue;
 
+			running += tdev->state != ST_STOPPED;
+			if (tdev->flags & FLG_BUSY)
+				continue;
 			if (spinlock_trylock(tdev->lock)) {
 				tdev->flags |= FLG_BUSY;
 			} else {
@@ -117,7 +123,7 @@ int fw_test_loop(void)
 			tdev->flags &= ~FLG_BUSY;
 			spinlock_unlock(tdev->lock);
 		}
-	} while (!err);
+	} while (!err && running);
 
        	return err;
 }
@@ -148,6 +154,7 @@ int fw_set_cpuallow(struct fw_dev *fwdev, unsigned long cpumask)
 	tdev->cpuallow = cpumask;
 	return 0;
 }
+
 
 struct fw_dev *fwdev_register(const char *name, struct fw_ops *ops)
 {

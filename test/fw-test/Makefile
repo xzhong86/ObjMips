@@ -1,3 +1,3 @@
 
-obj-y = fw-test.o
+obj-y = fw-dev0.o
 

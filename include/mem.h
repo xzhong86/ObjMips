@@ -23,22 +23,61 @@
 #define PG_THROUGH	((CCA_THROUGH << 3) | PG_Write | PG_Valid)
 #define PG_UCA		((CCA_UCA << 3) | PG_Write | PG_Valid)
 
-int map_mem_range(unsigned long addr, int len, 
-		  unsigned long uaddr, unsigned pg_attr);
-int map_mem_high(unsigned long phy, int len, 
-		 unsigned long uaddr, unsigned pg_attr);
+typedef unsigned long phy_t;
 
-int unmap_mem_range(unsigned long uaddr);
+/* MMU system */
+int map_mem_range(unsigned long k0addr, int len, 
+		  unsigned long vaddr, unsigned pg_attr);
+int map_mem_phy(phy_t addr, int len, 
+		unsigned long vaddr, unsigned pg_attr);
+
+int unmap_mem_range(unsigned long vaddr);
 
 void mmu_dump_tlb(void);
 
 
+/* memory page manger api */
 extern unsigned long max_low_pfn;
-
 struct page;
+
+/* flag in mem_get_pages,mem_alloc */
+#define MEM_LOW	0x1
+
+struct page * mem_get_pages(int page_nr, unsigned flag);
 int mem_free_pages(struct page *pages, int nr);
-struct page * mem_get_pages(int nr, unsigned flag);
+/* get phy addr of page */
+phy_t mem_page2phy(struct page *pages);
+/* get page from phy addr */
+struct page * mem_phy2page(phy_t addr);
 
 void mem_dump_buddy(void);
+
+
+/* memory alloc base on page system, if alloc
+ * size < PAGE_SIZE/2, mem_alloc return NULL.
+ */
+void * mem_alloc(unsigned size, unsigned flag);
+void mem_free(void *);
+
+/* get phy addr from any pointer */
+phy_t mem_get_phy(void*);
+
+
+/* memory/IO map/remap api */
+extern int jzsoc_mem_remapped;
+
+#include <mips.h>
+/* IO addr remap, the phy addr in default mode */
+void *__ioremap(phy_t addr, unsigned size);
+static inline
+void *ioremap(phy_t paddr, unsigned size)
+{
+	if (__builtin_constant_p(paddr)) {
+		if (!jzsoc_mem_remapped && ((paddr)>>28) == 1)
+			return (void*)PHYS_TO_K1(paddr);
+	}
+	return __ioremap(paddr, size);
+}
+void iounmap(void *vaddr);
 
 #endif

@@ -157,22 +157,33 @@ int map_mem_range(unsigned long addr, int len,
 {
 	unsigned long start,end = addr + len;
 
-	if ((addr >> 28) != 8)
+	if ((addr >> 28) != 8 && (addr >> 28) != 9)
 		return -1;
+	if ((uaddr >> 28) == 8 || (uaddr >> 28) == 9 ||
+	    (uaddr >> 28) == 0xa || (uaddr >> 28) == 0xb )
+		return -1;
+
 	start = K0_TO_PHYS(addr)/PAGE_SIZE;
 	end = (K0_TO_PHYS(end) + PAGE_SIZE -1)/PAGE_SIZE;
 	return map_mem_pfn(start, end-start, uaddr & PAGE_MASK, pg_attr);
 }
-int map_mem_high(unsigned long phy, int len, 
-		 unsigned long uaddr, unsigned pg_attr)
+int map_mem_phy(unsigned long phy, int len, 
+		unsigned long uaddr, unsigned pg_attr)
 {
 	unsigned long start,end = phy + len;
 
-	if (phy < 0x30000000)
+	if ((uaddr >> 28) == 8 || (uaddr >> 28) == 9 ||
+	    (uaddr >> 28) == 0xa || (uaddr >> 28) == 0xb )
 		return -1;
+
 	end = (end + PAGE_SIZE -1)/PAGE_SIZE;
 	start = phy/PAGE_SIZE;
 	return map_mem_pfn(start, end-start, uaddr & PAGE_MASK, pg_attr);
+}
+
+struct page * find_page_addr(unsigned long vaddr)
+{
+	return mem_phy2page(0);
 }
 
 int mmu_init(void)

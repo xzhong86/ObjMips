@@ -23,7 +23,10 @@
 #define PG_THROUGH	((CCA_THROUGH << 3) | PG_Write | PG_Valid)
 #define PG_UCA		((CCA_UCA << 3) | PG_Write | PG_Valid)
 
+#ifndef __TYPE_phy_t
+#define __TYPE_phy_t
 typedef unsigned long phy_t;
+#endif
 
 /* MMU system */
 int map_mem_range(unsigned long k0addr, int len, 
@@ -62,22 +65,5 @@ void mem_free(void *);
 /* get phy addr from any pointer */
 phy_t mem_get_phy(void*);
 
-
-/* memory/IO map/remap api */
-extern int jzsoc_mem_remapped;
-
-#include <mips.h>
-/* IO addr remap, the phy addr in default mode */
-void *__ioremap(phy_t addr, unsigned size);
-static inline
-void *ioremap(phy_t paddr, unsigned size)
-{
-	if (__builtin_constant_p(paddr)) {
-		if (!jzsoc_mem_remapped && ((paddr)>>28) == 1)
-			return (void*)PHYS_TO_K1(paddr);
-	}
-	return __ioremap(paddr, size);
-}
-void iounmap(void *vaddr);
 
 #endif

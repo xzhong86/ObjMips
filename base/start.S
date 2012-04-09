@@ -159,16 +159,13 @@ zerobss:
  */
 	.globl	_call_main
 
-	.globl	hardware_init_fun .text
-	.globl	software_init_fun .text
+	.globl	base_init_fun .text
 	.globl	atexit .text
 	.globl	exit .text
 	.globl	init
 	.ent	init
 init:
-	jal	hardware_init_fun
-	nop
-	jal	software_init_fun
+	jal	base_init_fun
 	nop
 
 	move	a0,zero				# set argc to 0

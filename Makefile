@@ -4,7 +4,7 @@ ROOT	= $(PWD)
 include config.mk
 
 obj-y	= main.o
-obj-y	+= base/ drivers/ test/
+obj-y	+= base/ test/ #device/
 
 # Command User Interface
 obj-$(CONFIG_CUI) += cui/

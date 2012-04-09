@@ -2,8 +2,9 @@
 
 #include <mipsop.h>
 #include <cache.h>
-#include <smp.h>
+#include <irq.h>
 #include <base.h>
+#include <smp.h>
 #include <smp_msg.h>
 #include <smp_fun.h>
 #include <pcpu.h>
@@ -32,12 +33,25 @@ static void soft_init(void)
 	printk("soft_init() finished.\n");
 }
 
+extern int intc_init(void);
+extern int uart_init(void);
+static void base_device_init(void)
+{
+	intc_init();
+	uart_init();
+}
+
+extern void uart_early_init(void);
 extern void param_init(void);
 extern void init_initcalls(void);
-void software_init_fun(void)
+void base_init_fun(void)
 {
+	uart_early_init();
 	param_init();
 	soft_init();
+	base_device_init();
+
+	irq_enable();
 	init_initcalls();
 }
 

@@ -19,8 +19,6 @@ extern int smp_call_func(int cpumask,void (*fun)(void *),void *data);
 
 extern int smp_ipi_func_spec(int cpumask,void (*fun)(void));
 
-extern void smp_ipi_interrupt(void);
-
 extern int smp_running_cpus;
 #define RUNNING_CPUS  ({smp_running_cpus;}) /* Cann't write */
 

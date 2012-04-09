@@ -3,7 +3,6 @@
 #include <cache.h>
 #include <mipsop.h>
 #include <irq.h>
-#include <intc.h>
 #include <smp.h>
 #include <base.h>
 
@@ -18,9 +17,22 @@ int setup_irq(void)
 
 #define IRQ_NR 128
 static int get_irq(void);
+
+struct irq_isr {
+	irqfun fun;
+	void *data;
+	const char *name;
+};
+static struct irq_isr isrs[IRQ_NR];
 static unsigned int irqs[CPU_NR][IRQ_NR];
-static irqfun irqfuns[IRQ_NR];
-static const char *irqnames[IRQ_NR];
+static int bad_irqs;
+
+extern int intc_mask(int int_no);
+extern int intc_unmask(int int_no);
+extern int intc_get_no(void);
+extern int intc_tst_no(unsigned int sr1,unsigned int sr0);
+
+extern void smp_ipi_interrupt(int irq, void *data);
 
 void irq_entry(struct cpu_regs *reg)
 {
@@ -29,54 +41,70 @@ void irq_entry(struct cpu_regs *reg)
 	int irq;
 	
 	cs &= reg->cp0_status & 0xff00;
-	if(cs & 0x800) {
-		smp_ipi_interrupt();
+	if (cs & 0x800) {
 		irq = 3;
+		smp_ipi_interrupt(irq, isrs[irq].data);
 		irqs[cpu][irq] ++;
 	}
-	else if(cs & 0x400) {
+	else if (cs & 0x400) {
 		irq = get_irq();
-		if(irqfuns[irq])
-			(irqfuns[irq])();
+		if(isrs[irq].fun) 
+			(isrs[irq].fun)(irq, isrs[irq].data);
+		else {
+			intc_mask(irq - IRQ_INTC_BASE);
+			bad_irqs ++;
+		}
 		irqs[cpu][irq] ++;
 		irqs[cpu][2] ++;
 	}
-	else if(cs & 0x100) {
+	else if (cs & 0x100) {
 		irq = 0;
 		irqs[cpu][irq] ++;
 		reg->cp0_epc += 4;
 	}
-	else if(cs & 0x200) {
+	else if (cs & 0x200) {
 		irq = 1;
 		irqs[cpu][irq] ++;
 		reg->cp0_epc += 4;
+	}
+	else
+		bad_irqs ++;
+
+	if (bad_irqs > 1000000) {
+		printk("Too many bad irqs!\n");
+		print_irqs();
+		*((volatile int*)0);
 	}
 }
 
 static int get_irq(void)
 {
 	int no = intc_get_no();
-	if(no)
-		return no + 8;
+	if (no)
+		return no + IRQ_INTC_BASE;
 	else
 		return 0;
 }
 int tst_irq(unsigned int sr1,unsigned int sr0)
 {
-	return intc_tst_no(sr1,sr0) + 8;
+	return intc_tst_no(sr1,sr0) + IRQ_INTC_BASE;
 }
 
-int register_irqfun(int irq,irqfun fun,const char *name)
+int register_irqfun(int irq, irqfun fun,
+		    const char *name, void *data)
 {
-	if(irqfuns[irq])
+	if (isrs[irq].fun)
 		return -1;
-	irqfuns[irq] = fun;
-	irqnames[irq] = name;
+	isrs[irq].fun = fun;
+	isrs[irq].data = data;
+	isrs[irq].name = name;
+	intc_unmask(irq - IRQ_INTC_BASE);
 	return 0;
 }
 void unregister_irqfun(int irq)
 {
-	irqfuns[irq] = NULL;
+	isrs[irq].fun = NULL;
+	intc_mask(irq - IRQ_INTC_BASE);
 	return;
 }
 
@@ -85,10 +113,10 @@ void print_irqs(void)
 	int cpu = smp_cpu_id();
 	int i;
 	printk("cpu%d irqs info:\n",cpu);
-	for(i=0;i<IRQ_NR;i++) {
-		if(irqfuns[i] || irqs[cpu][i])
+	for (i = 0; i < IRQ_NR; i++) {
+		if (isrs[i].fun || irqs[cpu][i])
 			printk("%-3d:%d\t%s\n",i,irqs[cpu][i],
-			       irqnames[i]?irqnames[i]:"no name");
+			       isrs[i].name?isrs[i].name:"no name");
 	}
 }
 

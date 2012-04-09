@@ -1,9 +1,13 @@
 #include <stdio.h>
-#include "irq.h"
-#include "time.h"
-#include "clock.h"
+#include <irq.h>
+#include <time.h>
 
 typedef unsigned long u32;
+
+unsigned int get_pclk_fre(void)
+{
+	return 0;
+}
 
 static inline int write_rtc_reg(u32 *addr,u32 val)
 {

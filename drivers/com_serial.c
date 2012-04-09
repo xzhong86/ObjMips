@@ -49,51 +49,19 @@ static void serial_chk(void)
 		uart_base = uart;
 }
 
-static int serial_init (void)
-{
-	/* change UART_PORT with chk value. */
-	serial_chk();
-	serial_puts("Init common serial.\n");
-	printk("printf in serial init.\n");
-	return 0;
-}
-
 static int serial_tstc (void)
 {
-	volatile u8 *uart_lsr = uart_base + OFF_LSR;
-
-	if (*uart_lsr & UART_LSR_DR) {
-		/* Data in rfifo */
-		return (1);
-	}
-	return 0;
+	return REG8(OFF_LSR) & UART_LSR_DR;
 }
-
 static void serial_putc (const char c)
 {
-	volatile u8 *uart_lsr = uart_base + OFF_LSR;
-	volatile u8 *uart_tdr = uart_base + OFF_TDR;
-
 	/* Wait for fifo to shift out some bytes */
-	while ( !((*uart_lsr & (UART_LSR_TDRQ | UART_LSR_TEMT)) == 0x60) );
-
-	*uart_tdr = (u8)c;
+	while (!((REG8(OFF_LSR) & (UART_LSR_TDRQ | UART_LSR_TEMT)) == 0x60))
+		;
+	REG8(OFF_TDR) = (u8)c;
 }
 static void serial_puts (const char *str)
 {
-	volatile u8 *uart_lsr = uart_base + OFF_LSR;
-	volatile u8 *uart_tdr = uart_base + OFF_TDR;
-
-	while(*str) {
-		/* Wait for fifo to shift out some bytes */
-		while ( !((*uart_lsr & (UART_LSR_TDRQ | UART_LSR_TEMT)) == 0x60) );
-		if (*str == '\n') {
-			*uart_tdr = (u8)'\r';
-			while ( !((*uart_lsr & (UART_LSR_TDRQ | UART_LSR_TEMT)) == 0x60) );
-		}
-		*uart_tdr = (u8)*str;
-		str ++;
-	}
 }
 
 static int serial_getc (void)
@@ -103,6 +71,15 @@ static int serial_getc (void)
 	while (!serial_tstc());
 
 	return *uart_rdr;
+}
+
+static int serial_init (void)
+{
+	/* change UART_PORT with chk value. */
+	serial_chk();
+	serial_puts("Init common serial.\n");
+	printk("printk in serial init.\n");
+	return 0;
 }
 
 struct serial_ops serial_common = {

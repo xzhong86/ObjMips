@@ -1,7 +1,6 @@
 #include <smp.h>
 #include <base.h>
 #include <irq.h>
-#include <intc.h>
 #include <dma.h>
 #include <mips.h>
 #include <bitops.h>
@@ -74,16 +73,14 @@ struct dma_chan *all_chans[ALL_CHAN_NUM];
 #define regr(p,off) (*(volatile unsigned*)((p)->iomem+(off)))
 #define regw(p,val,off) (*(volatile unsigned*)((p)->iomem+(off)) = (val))
 
-static void dma_irq0(void);
-static void dma_irq1(void);
+static void dma_irq0(int irq, void *d);
+static void dma_irq1(int irq, void *d);
 int dma_init(void)
 {
 	int i,j;
 
-	register_irqfun(tst_irq(0,0x01000000),dma_irq0,"DMA");
-	register_irqfun(tst_irq(0,0x00800000),dma_irq1,"DMA");
-	intc_unmask(0,0x01000000);
-	intc_unmask(0,0x00800000);
+	register_irqfun(tst_irq(0,0x01000000),dma_irq0,"DMA",NULL);
+	register_irqfun(tst_irq(0,0x00800000),dma_irq1,"DMA",NULL);
 
 	volatile unsigned *clkgr0 = (unsigned*)0xB0000020;
 	printk("clkgr0 %x\n",*clkgr0);
@@ -128,11 +125,11 @@ static void dma_irq(struct master *master)
 	if (err & (DMAC_HLT | DMAC_AR))
 		regw(master, err & ~(DMAC_HLT | DMAC_AR), DMAC);
 }
-static void dma_irq0(void)
+static void dma_irq0(int irq, void *d)
 {
 	dma_irq(&masters[0]);
 }
-static void dma_irq1(void)
+static void dma_irq1(int irq, void *d)
 {
 	dma_irq(&masters[1]);
 }

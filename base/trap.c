@@ -165,7 +165,6 @@ int setup_trap(void)
 	printk("exception entry: %08x\n",entry);
 #endif
 
-	irq_enable();
 	return 0;
 }
 

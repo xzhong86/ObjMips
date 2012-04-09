@@ -5,6 +5,7 @@
 
 #include <base.h>
 #include <mem.h>
+#include <iomap.h>
 #include <pcpu.h>
 #include <mips.h>
 #include <bitops.h>

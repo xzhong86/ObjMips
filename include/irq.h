@@ -20,8 +20,9 @@ extern void irq_entry(struct cpu_regs *reg);
  * 24 + 8 = 32, and IRQ in ICSR1 will plus 32 more, like:
  * MSC0 is bit 5 of ICSR1, irq NO. is 45
  */
-typedef void (*irqfun)(void);
-extern int register_irqfun(int irq,irqfun fun,const char *name);
+typedef void (*irqfun)(int irq, void *data);
+extern int register_irqfun(int irq, irqfun fun,
+			   const char *name, void *data);
 extern void unregister_irqfun(int irq);
 
 /* get irq NO. from ICSR register value */

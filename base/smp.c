@@ -234,10 +234,12 @@ void start_secondary(void)
 	smp_cpu_idle();
 }
 
+void smp_ipi_interrupt(int irq, void *data);
+
 #define SMP_IPI_IRQ 3
 int setup_ipi(void)
 {
-	register_irqfun(SMP_IPI_IRQ,smp_ipi_interrupt,"IPI");
+	register_irqfun(SMP_IPI_IRQ,smp_ipi_interrupt,"IPI",NULL);
 	smp_ipi_unmask(0xf);
 	return 0;
 }
@@ -333,7 +335,7 @@ static void int_call_func()
 }
 
 void mbox_ipi_entry(unsigned int);
-void smp_ipi_interrupt(void)
+void smp_ipi_interrupt(int irq, void *data)
 {
 	int cpu = smp_cpu_id();
 	unsigned int type,mbox = 0;

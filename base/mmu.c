@@ -1,155 +1,226 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <smp.h>
 #include <base.h>
-#include <linux/spinlock.h>
+#include <spinlock.h>
 #include <mem.h>
 #include <mips.h>
 #include <mipsop.h>
 
 //#define DEBUG
+#if PAGE_SIZE != (4*1024)
+#error "PAGE_SIZE must be 4k!"
+#endif
 
-struct mem_range {
-	/* used in asm, the order is important */
-	unsigned long start,end;
-	struct EntryLo {
+#define PGD_SHIFT	22
+#define PTE_SHIFT	12
+#define PTRS_PER_PTE	(1024)
+#define PTRS_PER_PGD	(1024)
+
+#define get_pgd(addr) (((unsigned)(addr)) >> PGD_SHIFT)
+#define get_pte(addr) ((((unsigned)(addr)) >> PTE_SHIFT) & (PTRS_PER_PTE-1))
+
+struct pte {
+	struct pg_pair {
 		unsigned int lo0,lo1;
-	} pairs[0];
+	} pairs[PTRS_PER_PTE/2];
 };
-struct mem_manage {
-	arch_spinlock_t lock;
-#define MEM_RANGE_MAX 128
-	struct mem_range *ranges[MEM_RANGE_MAX];
-	int nr_ranges;
+struct pgd {
+	struct pte *ptes[PTRS_PER_PGD];
 };
-static struct mem_manage mem_manager;
-static int tlb_entry_num;
+static struct pgd *kernel_pgd;
+struct pgd *current_pgd[CPU_NR];
 
-struct mem_range *current_range[CPU_NR];
+static int tlb_entry_num;
 
 #ifdef DEBUG
 #define pr_debug  printk
-static void dump_mem_range(struct mem_range *r)
+static void dump_mem_pgd(struct pgd *pgd)
 {
-	int i,n;
-	printk("mem: %lx - %lx\n",r->start,r->end);
-	n = ((r->end - r->start)/PAGE_SIZE +1) /2;
-	for (i = 0; i < n; i++)
-		printk("\tlo0:%x(%x)\tlo1:%x(%x)\n",
-		       r->pairs[i].lo0,r->pairs[i].lo0>>6,
-		       r->pairs[i].lo1,r->pairs[i].lo1>>6);
+	int i, j;
+
+	for (i = 0; i < PTRS_PER_PGD; i++) {
+		struct pte *pte = pgd->ptes[i];
+		if (!pte)
+			continue;
+		printk("pte %d %p:\n",i,pte);
+		for (j = 0; j < PTRS_PER_PTE/2; j++) {
+			struct pg_pair *pair = &pte->pairs[j];
+			if (!pair->lo0 && !pair->lo1)
+				continue;
+			printk("  %4d: %08x %08x\n",j,pair->lo0,pair->lo1);
+		}
+	}
 }
 #else
 #define pr_debug(arg...)  do { } while(0)
-#define dump_mem_range(r) do { } while(0)
+#define dump_mem_pgd(r) do { } while(0)
 #endif
 
 static void flush_tlb_entry(void);
 
-int mm_fault(unsigned long addr, int read)
+static struct pg_pair *get_pair(struct pgd *pgd, unsigned long addr)
+{
+	int pgdi = get_pgd(addr);
+	int ptei = get_pte(addr)/2;
+	if (pgd && pgd->ptes[pgdi])
+		return &pgd->ptes[pgdi]->pairs[ptei];
+	return NULL;
+}
+static unsigned int *get_entrylo(struct pgd *pgd, unsigned long addr)
+{
+	struct pg_pair *pair;
+
+	pair = get_pair(pgd, addr);
+	if (pair) {
+		if (addr/PAGE_SIZE %2)
+			return &pair->lo1;
+		else
+			return &pair->lo0;
+	}
+	return NULL;
+}
+static phy_t get_phy_addr(unsigned long addr)
 {
 	int cpu = smp_cpu_id();
-	int i;
+	unsigned int *lop;
 
+	lop = get_entrylo(current_pgd[cpu],addr);
+	if (lop)
+		return (*lop >> 6) * PAGE_SIZE;
+	return 0;
+}
+
+int mm_fault(unsigned long addr, int read)
+{
 	pr_debug("mm_fault: %lx %s\n",addr,read?"read":"write");
-	arch_spin_lock(&mem_manager.lock);
-	for (i = 0; i < MEM_RANGE_MAX; i++) {
-		struct mem_range *r = mem_manager.ranges[i];
-		if (r && r->start <= addr && addr < r->end) {
-			if (current_range[cpu] != r) {
-				current_range[cpu] = r;
-				flush_tlb_entry();
-			} else {
-				i = MEM_RANGE_MAX;
-#ifdef DEBUG
-				mmu_dump_tlb();
-#endif
-			}
-			break;
+	if (get_phy_addr(addr))
+		return 0;
+	return -1;
+}
+
+static int insert_pte(struct pgd *pgd, unsigned long uaddr)
+{
+	struct page *page;
+	int pgdi = get_pgd(uaddr);
+	unsigned long addr;
+
+	page = mem_get_pages(1, MEM_LOW);
+	if (!page)
+		return -1;
+	addr = mem_page2phy(page);
+	addr = PHYS_TO_K0(addr);
+	pgd->ptes[pgdi] = (struct pte*)addr;
+	memset((void*)addr, 0, sizeof(struct pte));
+	return 0;
+}
+static void unmap_range(unsigned long start, unsigned long end)
+{
+	struct pgd *pgd;
+	unsigned int *lop;
+
+	pgd = current_pgd[smp_cpu_id()];
+	while (start < end) {
+		lop = get_entrylo(pgd, start);
+		if (lop) {
+			/* invalid page */
+			*lop = 0;
 		}
+		start += PAGE_SIZE;
 	}
-	i = i == MEM_RANGE_MAX? -1: 0;
-	arch_spin_unlock(&mem_manager.lock);
-	return i;
 }
 static int map_mem_pfn(unsigned pfn, int nrpage, 
 		       unsigned long uaddr, unsigned pg_attr)
 {
-	int i, j, n, pairs, err = -1;
-	unsigned long uend;
+	struct pgd *pgd;
+	unsigned long addr;
 
 	if (uaddr == 0)
 		return -1;
 
-	uend = uaddr + nrpage * PAGE_SIZE;
-	uaddr &= ~(PAGE_SIZE*2 - 1);
-	arch_spin_lock(&mem_manager.lock);
-	if (mem_manager.nr_ranges >= MEM_RANGE_MAX)
-		goto out;
-
-	for (i = 0; i < MEM_RANGE_MAX; i++) {
-		struct mem_range *r = mem_manager.ranges[i];
-		if (r && r->start <= uend && uaddr < r->end) {
-			printk("[MMU] add range err\n");
-			goto out;
-		}
-	}
-	n = pfn % 2;
-	pfn -= n;
-	pairs = ((nrpage +n +1) / 2);
+	addr = uaddr;
 	pg_attr &= 0x3f;
-	for (i = 0; i < MEM_RANGE_MAX; i++) {
-		struct mem_range *r = mem_manager.ranges[i];
-		if (r)
-			continue;
-		r = (typeof(r))malloc(sizeof(struct mem_range) + 
-				      sizeof(struct EntryLo) * pairs);
-		r->start = uaddr;
-		r->end = uend;
-		for (j = 0; j < pairs; j++) {
-			r->pairs[j].lo0 = ((pfn+0) << 6) | pg_attr;
-			r->pairs[j].lo1 = ((pfn+1) << 6) | pg_attr;
-			pfn += 2;
+	pgd = current_pgd[smp_cpu_id()];
+	while (nrpage > 0) {
+		unsigned int *lop;
+		lop = get_entrylo(pgd, addr);
+		if (!lop) {
+			if (insert_pte(pgd, addr))
+				unmap_range(uaddr, addr - PAGE_SIZE);
+			else
+				continue;
 		}
-		if (n)
-			r->pairs[0].lo0 &= ~0x2;
-		if (nrpage < pairs*2-n)
-			r->pairs[pairs-1].lo1 &= ~0x2;
-		dump_mem_range(r);
-		mem_manager.ranges[i] = r;
-		mem_manager.nr_ranges ++;
-		break;
+		*lop = (pfn << 6) | pg_attr;
+		pfn += 1;
+		addr += PAGE_SIZE;
+		nrpage --;
 	}
-	err = i == MEM_RANGE_MAX? -1: 0;
 
-out:
-	arch_spin_unlock(&mem_manager.lock);
-	if (!err)
-		smp_ipi_func(0xff, flush_tlb_entry);
-	return err;
+	return 0;
+}
+
+struct range_unit {
+	unsigned long uaddr, end;
+	int nr_page;
+	struct range_unit *next;
+};
+static struct range_unit *range_list;
+static spinlock_t range_lock;
+static int insert_range(unsigned long uaddr, int nr_page)
+{
+	struct range_unit *ru, **rup;
+
+	ru = malloc(sizeof(*ru));
+	if (!ru)
+		return -1;
+	ru->uaddr = uaddr;
+	ru->nr_page = nr_page;
+	ru->end = uaddr + nr_page * PAGE_SIZE;
+
+	spinlock_lock(range_lock);
+	for (rup = &range_list; *rup; rup = &(*rup)->next)
+		if ((*rup)->uaddr >= uaddr)
+			break;
+	if (*rup && (*rup)->uaddr < ru->end) {
+		spinlock_unlock(range_lock);
+		free(ru);
+		return -1;
+	}
+	ru->next = *rup;
+	*rup = ru;
+	spinlock_unlock(range_lock);
+	return 0;
+}
+static struct range_unit *deliver_range(unsigned long uaddr)
+{
+	struct range_unit *ru, **rup;
+
+	ru = NULL;
+	spinlock_lock(range_lock);
+	for (rup = &range_list; *rup; rup = &(*rup)->next)
+		if ((*rup)->uaddr == uaddr)
+			break;
+	if (*rup) {
+		ru = *rup;
+		*rup = ru->next;
+	}
+	spinlock_unlock(range_lock);
+	return ru;
 }
 int unmap_mem_range(unsigned long uaddr)
 {
-	int i,j;
-	uaddr = uaddr & PAGE_MASK;
-	arch_spin_lock(&mem_manager.lock);
-	for (i = 0; i < MEM_RANGE_MAX; i++) {
-		struct mem_range *r = mem_manager.ranges[i];
-		if (!r || r->start != uaddr) 
-			continue;
-		for (j = 0; j < CPU_NR; j++)
-			if (current_range[j] == r)
-				current_range[j] = NULL;
-		free(r);
-		mem_manager.ranges[i] = NULL;
-		mem_manager.nr_ranges --;
-		break;
-	}
-	i = i == MEM_RANGE_MAX? -1: 0;
-	arch_spin_unlock(&mem_manager.lock);
-	if (! i)
-		smp_ipi_func(0xff, flush_tlb_entry);
-	return i;
+	struct range_unit *ru;
+
+	uaddr &= PAGE_MASK;
+	ru = deliver_range(uaddr);
+	if (!ru)
+		return -1;
+
+	unmap_range(ru->uaddr, ru->end);
+	free(ru);
+	smp_ipi_func(0xff, flush_tlb_entry);
+	return 0;
 }
 
 int map_mem_range(unsigned long addr, int len, 
@@ -165,6 +236,8 @@ int map_mem_range(unsigned long addr, int len,
 
 	start = K0_TO_PHYS(addr)/PAGE_SIZE;
 	end = (K0_TO_PHYS(end) + PAGE_SIZE -1)/PAGE_SIZE;
+	if (insert_range(uaddr & PAGE_MASK, end-start))
+		return -1;
 	return map_mem_pfn(start, end-start, uaddr & PAGE_MASK, pg_attr);
 }
 int map_mem_phy(unsigned long phy, int len, 
@@ -178,6 +251,8 @@ int map_mem_phy(unsigned long phy, int len,
 
 	end = (end + PAGE_SIZE -1)/PAGE_SIZE;
 	start = phy/PAGE_SIZE;
+	if (insert_range(uaddr & PAGE_MASK, end-start))
+		return -1;
 	return map_mem_pfn(start, end-start, uaddr & PAGE_MASK, pg_attr);
 }
 
@@ -190,6 +265,10 @@ int mmu_init(void)
 {
 	unsigned long config;
 
+	kernel_pgd = malloc(sizeof(struct pgd));
+	memset(kernel_pgd, 0, sizeof(struct pgd));
+	current_pgd[0] = kernel_pgd;
+	current_pgd[1] = kernel_pgd;
 	config = __read_32bit_c0_register($16, 1);
 	tlb_entry_num = (config >> 25) % 64 + 1;
 	flush_tlb_entry();

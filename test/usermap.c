@@ -1,11 +1,13 @@
-#include <smp_io.h>
+#include <base.h>
 #include <mem.h>
 #include <mips.h>
 #include <stdlib.h>
 
+#include <test/test-head.h>
+
 #define USR_BASE 0x10000000
 #define TO_USR(addr) ((typeof(addr))(K0_TO_PHYS(addr) + USR_BASE))
-int usrmap_test(void)
+static int usrmap(void)
 {
 	int *p,*up;
 	int i,e,size = 4*4096;
@@ -36,8 +38,9 @@ int usrmap_test(void)
 		e += p[i] != 22222222 + i;
 	printk(" %d error\n",e);
 
-	unmap_mem_range((unsigned)up);
-	printk("free %p\n",p);
+	e = unmap_mem_range((unsigned)up);
+	printk("free %p %d\n",p,e);
 	free(p);
 	return 0;
 }
+DEF_TEST(usrmap, 30, TESTF_REPEAT);

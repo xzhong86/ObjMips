@@ -67,6 +67,7 @@ static void my_stop(struct fw_dev *dev)
 		printk("no, i stopped at %d\n", md->times);
 	else
 		printk("o, i stopped\n");
+	free(md);
 }
 
 static struct fw_ops mydev_ops = {
@@ -79,7 +80,7 @@ static struct fw_ops mydev_ops = {
 
 static int init_dev(void)
 {
-	if (!fwdev_register("mydev", &mydev_ops))
+	if (!fwdev_register("ddev1", &mydev_ops))
 		return -1;
 	return 0;
 }

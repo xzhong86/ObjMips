@@ -210,8 +210,6 @@ static int do_test(int argc,char *argv[])
 		show_all_test();
 	else if (argc >= 2 && strcmp(argv[1],"cache") == 0)
 		cache_probe();
-	else if (argc >= 2 && strcmp(argv[1],"fw") == 0)
-		fw_test_loop();
 	else if (argc >= 3) {
 		int loop;
 		struct test_entity *t;

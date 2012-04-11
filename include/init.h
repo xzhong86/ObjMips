@@ -29,11 +29,14 @@ struct __initcall_entity {
 		.level = LVL,						\
 	}
 
-/* LVL followed can be -99 ~ 99 */
-#define base_initcall(FUN, LVL)	initcall(FUN, (LVL) + 100)
-#define soft_initcall(FUN, LVL)	initcall(FUN, (LVL) + 200)
+/* LVL followed can be 0 ~ 99 */
+#define core_initcall(FUN, LVL)	initcall(FUN, (LVL) + 100)
+#define base_initcall(FUN, LVL)	initcall(FUN, (LVL) + 200)
 #define dev_initcall(FUN, LVL)	initcall(FUN, (LVL) + 300)
 
+#define cmd_initcall(FUN, LVL)	initcall(FUN, (LVL) + 900)
+
+/* LVL followed can be -99 ~ 99 */
 #define test_initcall(FUN, LVL)	initcall(FUN, (LVL) + 1100)
 #define fw_initcall(FUN, LVL)	initcall(FUN, (LVL) + 1300)
 

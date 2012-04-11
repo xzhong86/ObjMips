@@ -107,6 +107,9 @@ static int prepare_cpus(int max_cpus)
 	int up, i = 0;
 	unsigned int pflag = (unsigned int)K0_TO_K1(&smp_flag);
 
+	if (max_cpus < 2)
+		return 0;
+
 	*p++ = INST_LUI(26,pflag>>16);
 	*p++ = INST_ORI(26,pflag);
 	*p++ = INST_LW(2,0,26);

@@ -4,13 +4,16 @@
 
 #include <base.h>
 #include <init.h>
+#include <mem.h>
+#include <cache.h>
+#include <mips.h>
 #include <test/fw.h>
 
 struct my_data {
-	int times;
-	int n;
-#define ARR_NUM 100
-	int arr[ARR_NUM];
+	int times, n;
+#define TEST_SIZE 100*1024
+	unsigned int *mem;
+	unsigned int phy;
 };
 
 static int my_prepare(struct fw_dev *dev)
@@ -18,7 +21,15 @@ static int my_prepare(struct fw_dev *dev)
 	struct my_data *md;
 
 	md = malloc(sizeof(*md));
+	if (!md)
+		return -1;
 	md->times = 0;
+	md->mem = mem_alloc(TEST_SIZE);
+	if (!md->mem) {
+		free(md);
+		return -1;
+	}
+	md->phy = mem_get_phy(md->mem);
 	dev->priv = md;
 	return 0;
 }
@@ -28,18 +39,22 @@ static int my_start(struct fw_dev *dev)
 	struct my_data *md = dev->priv;
 	int i;
 
+	for (i = 0; i < TEST_SIZE/4; i++)
+		md->mem[i] = 0;
 	md->n = 0;
-	for (i = 0; i < ARR_NUM; i++)
-		md->arr[i] = 0;
+	flush_dcache_range((unsigned)md->mem,
+			   (unsigned)md->mem + TEST_SIZE);
 	return 0;
 }
 
 static void my_ask(struct fw_dev *dev)
 {
 	struct my_data *md = dev->priv;
+	unsigned int *p;
 
-	md->arr[md->n] = md->n;
-	if (++md->n >= ARR_NUM)
+	p = (unsigned int*)PHYS_TO_K1(md->phy);
+	p[md->n] = md->n;
+	if (++md->n >= TEST_SIZE/4)
 		fw_finish(dev);
 }
 
@@ -48,10 +63,10 @@ static chk_t my_check(struct fw_dev *dev)
 	struct my_data *md = dev->priv;
 	int i;
 
-	if (md->n != ARR_NUM)
+	if (md->n != TEST_SIZE/4)
 		return CHK_FAILED;
-	for (i = 0; i < ARR_NUM; i++)
-		if (md->arr[i] != i)
+	for (i = 0; i < TEST_SIZE/4; i++)
+		if (md->mem[i] != i)
 			return CHK_FAILED;
 
 	if (md->times ++ > 10)
@@ -67,6 +82,7 @@ static void my_stop(struct fw_dev *dev)
 		printk("no, i stopped at %d\n", md->times);
 	else
 		printk("o, i stopped\n");
+	mem_free(md->mem);
 	free(md);
 }
 

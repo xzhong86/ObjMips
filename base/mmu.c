@@ -87,9 +87,9 @@ static phy_t get_phy_addr(unsigned long addr)
 	unsigned int *lop;
 
 	lop = get_entrylo(current_pgd[cpu],addr);
-	if (lop)
-		return (*lop >> 6) * PAGE_SIZE;
-	return 0;
+	if (!lop)
+		return 0;
+	return (*lop >> 6) *PAGE_SIZE + addr %PAGE_SIZE;
 }
 
 int mm_fault(unsigned long addr, int read)
@@ -258,7 +258,11 @@ int map_mem_phy(unsigned long phy, int len,
 
 struct page * find_page_addr(unsigned long vaddr)
 {
-	return mem_phy2page(0);
+	phy_t phy = get_phy_addr(vaddr);
+
+	if (phy)
+		return mem_phy2page(phy);
+	return NULL;
 }
 
 int mmu_init(void)

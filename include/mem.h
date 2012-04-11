@@ -59,7 +59,7 @@ void mem_dump_buddy(void);
 /* memory alloc base on page system, if alloc
  * size < PAGE_SIZE/2, mem_alloc return NULL.
  */
-void * mem_alloc(unsigned size, unsigned flag);
+void * mem_alloc(unsigned size);
 void mem_free(void *);
 
 /* get phy addr from any pointer */

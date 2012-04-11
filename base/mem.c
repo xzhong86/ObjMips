@@ -306,7 +306,7 @@ struct mem_unit {
 	struct mem_unit *next;
 };
 static struct mem_unit *mem_list;
-void * mem_alloc(unsigned size, unsigned flag)
+void * mem_alloc(unsigned size)
 {
 	struct mem_unit *mu;
 	struct page *pages;
@@ -317,16 +317,15 @@ void * mem_alloc(unsigned size, unsigned flag)
 	mu = malloc(sizeof(*mu));
 	if (!mu)
 		return NULL;
-	flag |= MEM_LOW;
 	size = ((size - 1)/PAGE_SIZE) +1;
-	pages = buddy_get_pages(size, flag);
+	pages = buddy_get_pages(size, MEM_LOW);
 	if (!pages) {
 		free(mu);
 		return NULL;
 	}
 	addr = PFN(pages)*PAGE_SIZE + 0x80000000;
 	mu->nr_pages = size;
-	mu->flag = flag;
+	mu->flag = MEM_LOW;
 	mu->vaddr = (void*)addr;
 	mu->pages = pages;
 

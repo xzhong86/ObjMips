@@ -41,6 +41,12 @@ struct my_data {
 	unsigned int phy;
 };
 
+#ifdef DEBUG
+#define pr_dbg	printk
+#else
+#define pr_dbg(arg...) do { } while(0)
+#endif
+
 static int my_prepare(struct fw_dev *dev)
 {
 	struct my_data *md;
@@ -48,28 +54,21 @@ static int my_prepare(struct fw_dev *dev)
 	
 	nemc_nand_flash_bank = NEMC_BANK;
 	use_toggle_nand = 1 ;//1:use toggle nand flash; 0:use common nand flash;
-	printk("the mcu must be reset at first\n");
+	/* the mcu must be reset at first */
 	REG32(0xb3421030) = REG32(0xb3421030) | 0x1;//reset mcu
-	printk("the mcu has been reset by software succussfully\n");
 
-	printk("prepare to download the mcu code\n");
-	printk("the mcu code is %d bytes size\n",sizeof(mcu_code));
+	printk("download the mcu code %d bytes\n",sizeof(mcu_code));
 	for(i=0;i<sizeof(mcu_code)/4;i++)
 		REG32(0xb3422000 + i*4) = mcu_code[i];
-	printk("the mcu code has been downloaded into the pdma_mcu_tcsm\n");
   
-	printk("prepare to login the mcu mailbox interrupt program\n");
 	register_irqfun(32+8+29,pdma_mailbox_int_handler,"pdma_mailbox",NULL);
 	REG32(0xb000102c) = 0x20000000;
-	printk("the mcu mailbox interrupt program login success\n");
 	
 	
-	fast_mode_config(0);                                          //not fast mode
-	mcu_boot_up();                                                //boot up mcu
+	fast_mode_config(0);     //not fast mode
+	mcu_boot_up();           //boot up mcu
 	REG32(DMAC) = 1;
 	printk("the initial dmac is %x\n",REG32(DMAC));
-
-	
 
 	md = malloc(sizeof(*md));
 	if (!md)
@@ -110,8 +109,7 @@ static chk_t my_check(struct fw_dev *dev)
 	unsigned int *ddr_data = md->mem;
 	unsigned int *ddr_data_readback = (unsigned int *)((unsigned int)md->mem + 10*1024);
 	int i;
-	unsigned int error_flag = 0;
-	static unsigned int error_cnt = 0;
+	unsigned int error = 0;
 	
 	if(md->times%2 == 0)
 		nemc_write_ck(nemc_nand_flash_bank) ;
@@ -121,22 +119,21 @@ static chk_t my_check(struct fw_dev *dev)
 		for(i=0; i<10*1024/4; i++){
 			if(ddr_data[i] != ddr_data_readback[i]) 
 			{
-				printk("the different array is %d\n",i);
-				printk("the read-back data is %08x and the source data is %08x\n",
-				       ddr_data_readback[i],ddr_data[i]);
-				error_flag = 1;
+				printk("read-back %d is %08x but need %08x\n",
+				       i,ddr_data_readback[i],ddr_data[i]);
+				if (error ++ > 10)
+					break;
 			}    
 		}
-		if(error_flag)
-			error_cnt++;
 		ddr2nemc_done = 0;
-      		printk("there have been %d errors\n",error_cnt);
+		if(error)
+			printk("there have been %d errors\n",error);
 	}
 
 	md->times++;
 	dev->priv = md;
 
-	if(error_flag)
+	if(error)
 		return CHK_FINISHED;
 	return CHK_PASSED;
 }
@@ -173,20 +170,20 @@ fw_initcall(init_dev,100);
 
 static void pdma_mailbox_int_handler()//interrupt handler
 {
-	printk("enter the pdma_mailbox interrupt handler\n");
+	pr_dbg("enter the pdma_mailbox interrupt handler\n");
 	clear_pdma_mailbox_int();
 	if(((REG32(COM_MAIl_BOX) & 0xff) == 0x1) || ((REG32(COM_MAIl_BOX) & 0xff) == 0x2))
 	{
 		ddr2nemc_done = 1;
 		if((REG32(COM_MAIl_BOX) & 0xff) == 0x1)
-			printk("the nand write has completed\n");
+			pr_dbg("the nand write has completed\n");
 		else
-			printk("the nand read has completed\n");
+			pr_dbg("the nand read has completed\n");
 	}
 	else if((REG32(COM_MAIl_BOX) & 0xff) == 0xff)
 	{
-		printk("there is one nand block is un-corrected\n");
-		printk("the un_corrected block is %d\n",(unsigned int)((REG32(COM_MAIl_BOX) >> 24) & 0xff));
+		pr_dbg("there is one nand block is un-corrected\n");
+		pr_dbg("the un_corrected block is %d\n",(unsigned int)((REG32(COM_MAIl_BOX) >> 24) & 0xff));
 	}
 }
 
@@ -195,13 +192,13 @@ static void bch_cfg(unsigned int bch_level,unsigned int block)
 	unsigned int blocksize     = block ;
 	unsigned int paritysize    = bch_level*14/8;
 	unsigned int sel_ecc_level = bch_level ;
-	printk("prepare to bch_cfg\n");
+	pr_dbg("prepare to bch_cfg\n");
 	bch_set_size(
 		blocksize ,
 		paritysize
 		) ;
 	REG32(BCH_BASE + 0x0) = 0x5|((sel_ecc_level&0x7f)<<4) ;
-	printk("bch_cfg has been completed\n");
+	pr_dbg("bch_cfg has been completed\n");
 }
 
 static void single_test_nand(unsigned int loop_cnt,
@@ -231,11 +228,11 @@ static void single_test_nand(unsigned int loop_cnt,
 	block_size    = 64;
 	if(block_size == 0)
 		block_size = 1024;      
-	printk("the current block_size is %d\n",block_size);
+	pr_dbg("the current block_size is %d\n",block_size);
 
 	bch_level      = 4 * (loop_cnt%16 + 1);
 	bch_level      = 4;
-	printk("the current bch_level is %d\n",bch_level);
+	pr_dbg("the current bch_level is %d\n",bch_level);
       
 	if((bch_level*14/8)%4)
 		parity_temp = ((bch_level*14/8)/4 + 1)*4;
@@ -246,17 +243,17 @@ static void single_test_nand(unsigned int loop_cnt,
 	block_cnt_temp = 2048/parity_temp;
 	if(block_cnt > block_cnt_temp)
 		block_cnt = block_cnt_temp;
-	printk("the current transfer-cnt is %d\n",block_cnt);
+	pr_dbg("the current transfer-cnt is %d\n",block_cnt);
       
 	trans_bytes    = block_cnt * block_size;
-	printk("the current total transfer bytes is %d\n",trans_bytes);
+	pr_dbg("the current total transfer bytes is %d\n",trans_bytes);
       
 	page_size      = trans_bytes;
    
 	unsigned int i, src_addr;
 
 	
-	printk("the nand source data has been ready\n");
+	pr_dbg("the nand source data has been ready\n");
 	bch_cfg(bch_level,block_size) ;
   
 	if(loop_cnt%2 == 0)
@@ -271,7 +268,7 @@ static void single_test_nand(unsigned int loop_cnt,
 		blast_dcache();
 		jz_sync();
 	
-		printk("the nand source data has been ready\n");
+		pr_dbg("the nand source data has been ready\n");
 		//---------------------------------------
 		//nemc erase a block
 		//---------------------------------------
@@ -283,10 +280,7 @@ static void single_test_nand(unsigned int loop_cnt,
 		config_ddr_nemc_trans(src_addr, tgt_addr, trans_bytes, 1,addr0, addr1, addr2, 
 				      ((addr2&0xff00)>>8), ((addr2&0xff0000)>>16), 
 				      nemc_nand_flash_bank,use_toggle_nand,page_size,block_size);
-                printk("pending is %x\n",REG32(0xb0001020));
-		printk("pending is %x\n",REG32(0xb0001020));
-		printk("pending is %x\n",REG32(0xb0001020));
-		printk("nand write transfer start\n");
+		pr_dbg("nand write transfer start\n");
 	}
 	else
 	{
@@ -299,12 +293,12 @@ static void single_test_nand(unsigned int loop_cnt,
 		config_ddr_nemc_trans(src_addr, read_nemc_tgt_addr, trans_bytes, 2, addr0, addr1, addr2, 
 				      ((addr2&0xff00)>>8), ((addr2&0xff0000)>>16), 
 				      nemc_nand_flash_bank,use_toggle_nand,page_size,block_size);
-		printk("nand read transfer start\n");
+		pr_dbg("nand read transfer start\n");
 	}
 
 	if(local_new_page_flag%2 == 0)
 		addr2++;
-	printk("the current nand page address is %d\n",addr2);
+	pr_dbg("the current nand page address is %d\n",addr2);
 }
 
 static unsigned int mcu_code[2012] = {

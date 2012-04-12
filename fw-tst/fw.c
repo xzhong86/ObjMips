@@ -47,9 +47,12 @@ static int tdev_statm(struct tdev *tdev)
 		break;
 
 	case ST_READY:
-		ret = tdev->ops->start(&tdev->fwdev);
+		if (tdev->ops->reset)
+			ret = tdev->ops->reset(&tdev->fwdev);
+		if (!ret)
+			ret = tdev->ops->start(&tdev->fwdev);
 		if (ret) {
-			printk("[FW] %s start %d failed.\n",
+			printk("[FW] %s reset/start %d failed.\n",
 			       tdev->fwdev.name, tdev->times);
 			tdev->state = ST_STOPPED;
 			break;
@@ -87,6 +90,8 @@ static int tdev_statm(struct tdev *tdev)
 		printk("[FW] %s errored at %d.\n",
 		       tdev->fwdev.name, tdev->times);
 		tdev->ops->stop(&tdev->fwdev);
+		if (tdev->ops->release)
+			tdev->ops->release(&tdev->fwdev);
 		tdev->state = ST_STOPPED;
 		break;
 
@@ -173,10 +178,15 @@ struct fw_dev *fwdev_register(const char *name, struct fw_ops *ops)
 {
 	struct tdev *tdev, **tpp;
 
+	if (!ops || !ops->prepare || !ops->start || !ops->check
+	    || !ops->stop)
+		return NULL;
+
 	tdev = malloc(sizeof(*tdev));
 	if (!tdev)
 		return NULL;
 	memset(tdev, 0, sizeof(*tdev));
+	name = name? name: "???";
 	tdev->fwdev.name = name;
 	tdev->fwdev.ops  = ops;
 	tdev->fwdev.id   = tdev_num ++;

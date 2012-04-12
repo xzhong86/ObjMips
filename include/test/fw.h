@@ -1,6 +1,6 @@
 
-#ifndef __FW_H__
-#define __FW_H__
+#ifndef __TEST_FW_H__
+#define __TEST_FW_H__
 
 struct fw_ops;
 struct fw_dev {
@@ -20,6 +20,9 @@ struct fw_ops {
 	/* called only once at first */
 	int  (*prepare)(struct fw_dev *);
 
+	/* always called before start test, could be NULL */
+	int  (*reset)(struct fw_dev *);
+
 	/* called to start one test */
 	int  (*start)(struct fw_dev *);
 
@@ -36,6 +39,10 @@ struct fw_ops {
 
 	/* stop test, stop device, force! */
 	void (*stop)(struct fw_dev *);
+
+	/* release resource after stop(), like free mem,unmap IO,
+	   unregister IRQ, could be NULL if done in stop() */
+	void (*release)(struct fw_dev *);
 };
 
 /* called when test case finished */

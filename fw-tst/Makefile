@@ -8,3 +8,4 @@ obj-y = fw.o
 obj-y += dummy-dev0.o
 obj-y += dummy-dev1.o
 obj-y += x2d.o
+obj-y += cim/

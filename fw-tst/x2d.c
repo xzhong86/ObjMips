@@ -22,6 +22,7 @@
 #define MAX_X2D_TEST_TIMES 1000
 
 //#define X2D_DEBUG_M
+#define X2D_SHOW
 
 #define X2D_IRQ_ID 19
 #define X2D_IRQ_MODE
@@ -51,14 +52,6 @@ struct x2d_data {
 
 
 #define sat_to_0_255(a)  ( (int)(a) > 255 ? 255 : (int)(a)<0? 0 : (a) )
-
-static int x2d_end;
-static void x2d_irq_handle()
-{
-  write_x2d_reg(X2D_SLV_GLB_TRIG, X2D_IRQ_CLR);  
-  x2d_end = 1;
-}
-
 
 uint32_t get_coef(uint32_t x) //coef * 512
 {
@@ -909,9 +902,10 @@ void fm_rotate(
   int src_ypos = 0;
   int dst_xpos = 0;
   int dst_ypos = 0;
-/*   printf(" > rota fm now rota-%d\n", rota_m); */
-/*   printf(" > src: w-%d, h-%d, str-%d\n", src_w, src_h, src_str); */
-/*   printf(" > dst: w-%d, h-%d, str-%d\n", dst_w, dst_h, dst_str);   */
+  /* printk(" > rota fm now rota-%d\n", rota_m); */
+  /* printk(" > src: w-%d, h-%d, str-%d\n", src_w, src_h, src_str); */
+  /* printk(" > dst: w-%d, h-%d, str-%d\n", dst_w, dst_h, dst_str); */
+  /* printk(" dst: %p, src: %p\n", dst, src); */
   for ( y = 0; y < dst_h; y++){
     for ( x = 0; x < dst_w; x++){
       dst_xpos = x;
@@ -945,8 +939,8 @@ void fm_rotate(
 	{
 	  dst_ypos = (dst_h - 1) - dst_ypos;
 	}
-      //printf("--dst: [x,y]-[%d, %d]\n", dst_xpos, dst_ypos);
-      //printf("--src: [x,y]-[%d, %d]\n", src_xpos, src_ypos);
+      /* printk("--dst: [x,y]-[%d, %d]\n", dst_xpos, dst_ypos); */
+      /* printk("--src: [x,y]-[%d, %d]\n", src_xpos, src_ypos); */
       dst[dst_xpos+dst_ypos*(dst_str/(sizeof(uint32_t)))] 
 	= src[src_xpos + src_ypos * (src_str/(sizeof(uint32_t)))];
     }
@@ -1630,9 +1624,22 @@ void init_verc(x2d_tbench_verc_info_p verc_ptr)
 
 }
 
+#ifdef X2D_IRQ_MODE
+static void x2d_irq_handle(int irq, void *d)
+{
+	struct fw_dev *dev = d;
+	write_x2d_reg(X2D_SLV_GLB_TRIG, X2D_IRQ_CLR);  
+	fw_finish(dev);
+}
+#endif
+
 static int x2d_prepare(struct fw_dev *dev)
 {
   struct x2d_data *x2d_p;
+#ifdef X2D_SHOW
+  printk(" +X2D prepare ! \n");
+#endif
+
 #ifdef SEED_CFG
   int seed=SEED_CORE;
 #else
@@ -1643,7 +1650,7 @@ static int x2d_prepare(struct fw_dev *dev)
   x2d_base = ioremap(X2D_P_BASE , 0x10000);
 
 #ifdef X2D_IRQ_MODE
-  register_irqfun( IRQ_INTC_BASE + X2D_IRQ_ID,x2d_irq_handle,"X2D",NULL);
+  register_irqfun( IRQ_INTC_BASE + X2D_IRQ_ID,x2d_irq_handle,"X2D",dev);
 #endif
 
   x2d_p = malloc(sizeof(*x2d_p));
@@ -1676,6 +1683,7 @@ static int x2d_prepare(struct fw_dev *dev)
     x2d_p->verc_ptr->layx_ver[i].ilay_uaddr = mem_alloc(TEST_SIZE * 5);
     x2d_p->verc_ptr->layx_ver[i].ilay_vaddr = mem_alloc(TEST_SIZE * 5);
 
+    x2d_p->verc_ptr->layx_ver[i].ilay_rota_addr = mem_alloc(TEST_SIZE * 5);
     x2d_p->verc_ptr->layx_ver[i].ilay_rsz_addr = mem_alloc(TEST_SIZE * 5);
 
 	  
@@ -1683,6 +1691,7 @@ static int x2d_prepare(struct fw_dev *dev)
 	!x2d_p->verc_ptr->layx_ver[i].ilay_yaddr ||
 	!x2d_p->verc_ptr->layx_ver[i].ilay_uaddr ||
 	!x2d_p->verc_ptr->layx_ver[i].ilay_vaddr ||
+	!x2d_p->verc_ptr->layx_ver[i].ilay_rota_addr ||
 	!x2d_p->verc_ptr->layx_ver[i].ilay_rsz_addr 
 	) {
       printk("X2D malloc Layer %d memory FAILED !\n",i);
@@ -1697,11 +1706,16 @@ static int x2d_prepare(struct fw_dev *dev)
   }
 
 
+#ifdef X2D_SHOW
+  printk(" +X2D Malloc over ! \n");
+#endif
   // Initial X2D data and chain here!
   init_verc(x2d_p->verc_ptr);
+#ifdef X2D_SHOW
+  printk(" +X2D initial pixels over ! \n");
+#endif
   x2d_p->chn_ptr->overlay_num = x2d_p->verc_ptr->lay_num;
   x2d_p->chn_ptr->dst_tile_en = x2d_p->verc_ptr->layb_ver.ilay_tile_en;
-
 	
   if ( x2d_p->verc_ptr->dst_tlb_en == 1)
     x2d_p->chn_ptr->dst_addr = (uint32_t)x2d_p->verc_ptr->layb_ver.ilay_argb_addr;
@@ -1761,20 +1775,23 @@ static int x2d_prepare(struct fw_dev *dev)
 
       x2d_p->chn_ptr->x2d_lays[i].rsz_hcoef = x2d_p->verc_ptr->layx_ver[i].ilay_hrsz_coef;
       x2d_p->chn_ptr->x2d_lays[i].rsz_vcoef = x2d_p->verc_ptr->layx_ver[i].ilay_vrsz_coef;      
-
-
     }
 
   write_x2d_reg(X2D_SLV_GLB_TRIG, X2D_RST);
+#ifdef X2D_SHOW
+  printk(" +X2D chain over ! \n");
+#endif
 
   dev->priv = x2d_p;
   return 0;
 }
 
-
 static int x2d_start(struct fw_dev *dev)
 {
   struct x2d_data *x2d_p = dev->priv;
+#ifdef X2D_SHOW
+  printk(" +X2D start ! ..");
+#endif
 
   recovery_bk_fm(x2d_p->verc_ptr->layb_ver.ilay_raw_addr , x2d_p->verc_ptr->layb_ver.ilay_argb_addr, TEST_SIZE * 5);
 
@@ -1800,23 +1817,35 @@ static int x2d_start(struct fw_dev *dev)
 
   write_x2d_reg(X2D_SLV_DST_BARGB, x2d_p->verc_ptr->layb_ver.ilay_bak_argb);
 
-  x2d_end = 0;
   write_x2d_reg(X2D_SLV_GLB_TRIG, X2D_START); // Start X2D here .
 
   blast_cache_all();
+
+#ifdef X2D_SHOW
+  printk(" .\n");
+#endif
+
   return 0;
 }
 
+#ifndef X2D_IRQ_MODE
 static void x2d_ask(struct fw_dev *dev)
 {
   struct x2d_data *x2d_p = dev->priv;
-  
-#ifdef X2D_IRQ_MODE
-  do{
-  }while(x2d_end==0);
+#ifdef X2D_SHOW
+  printk("A");
 #endif
-  do{
-  }while((read_x2d_reg(X2D_SLV_GLB_STATUS) & GLB_FSM_MSK) != GIDLE);
+  
+  if ((read_x2d_reg(X2D_SLV_GLB_STATUS) & GLB_FSM_MSK) != GIDLE)
+	  return;
+
+  fw_finish(dev);
+}
+#endif
+
+static chk_t x2d_check(struct fw_dev *dev)
+{
+  struct x2d_data *x2d_p = dev->priv;
 
   if ( (read_x2d_reg(X2D_SLV_GLB_STATUS) & GLB_WDOG_ERR) != 0)
     printk(" +X2D : Watch dog error !\n");
@@ -1832,14 +1861,6 @@ static void x2d_ask(struct fw_dev *dev)
   write_x2d_reg(X2D_SLV_GLB_TRIG, X2D_IRQ_CLR);
 
   blast_cache_all();
-
-  //??
-  fw_finish(dev);
-}
-
-static chk_t x2d_check(struct fw_dev *dev)
-{
-  struct x2d_data *x2d_p = dev->priv;
 
   int value = blk_cmp_fm(
 			 x2d_p->verc_ptr->layb_ver.ilay_argb_addr, 
@@ -1884,7 +1905,8 @@ static void x2d_stop(struct fw_dev *dev)
     mem_free(x2d_p->verc_ptr->layx_ver[i].ilay_yaddr);
     mem_free(x2d_p->verc_ptr->layx_ver[i].ilay_uaddr);
     mem_free(x2d_p->verc_ptr->layx_ver[i].ilay_vaddr);
-
+    mem_free(x2d_p->verc_ptr->layx_ver[i].ilay_rota_addr);
+    mem_free(x2d_p->verc_ptr->layx_ver[i].ilay_rsz_addr);
   }
 
   mem_free(x2d_p->chn_ptr);
@@ -1895,7 +1917,9 @@ static void x2d_stop(struct fw_dev *dev)
 static struct fw_ops x2d_dev_ops = {
 	.prepare = x2d_prepare,
 	.start = x2d_start,
+#ifndef X2D_IRQ_MODE
 	.ask = x2d_ask,
+#endif
 	.check = x2d_check,
 	.stop = x2d_stop,
 };

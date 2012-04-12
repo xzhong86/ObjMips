@@ -131,4 +131,4 @@ static int init_dev(void)
 		return -1;
 	return 0;
 }
-fw_initcall(init_dev,100);
+fw_initcall(init_dev,0);

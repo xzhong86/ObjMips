@@ -10,3 +10,4 @@ obj-y += dummy-dev1.o
 obj-y += cpu-copy.o
 obj-y += x2d.o
 obj-y += cim/
+obj-y += pdma/

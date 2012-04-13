@@ -29,6 +29,12 @@ struct tdev {
 static struct tdev *tdev_head;
 static int tdev_num;
 
+static int fw_debug;
+#define tdev_dbg(fmt, ...)						\
+	if (fw_debug) printk("[FW %s] " fmt, tdev->fwdev.name, ##__VA_ARGS__)
+#define tdev_prt(fmt, ...) \
+	printk("[FW %s] " fmt, tdev->fwdev.name, ##__VA_ARGS__)
+
 /* state machine */
 static int tdev_statm(struct tdev *tdev)
 {
@@ -36,10 +42,10 @@ static int tdev_statm(struct tdev *tdev)
 
 	switch (tdev->state) {
 	case ST_INIT:
+		tdev_dbg("prepare!\n");
 		ret = tdev->ops->prepare(&tdev->fwdev);
 		if (ret) {
-			printk("[FW] %s prepare failed.\n",
-			       tdev->fwdev.name);
+			tdev_prt("prepare failed.\n");
 			tdev->state = ST_STOPPED;
 			break;
 		}
@@ -47,13 +53,13 @@ static int tdev_statm(struct tdev *tdev)
 		break;
 
 	case ST_READY:
+		tdev_dbg("start!\n");
 		if (tdev->ops->reset)
 			ret = tdev->ops->reset(&tdev->fwdev);
 		if (!ret)
 			ret = tdev->ops->start(&tdev->fwdev);
 		if (ret) {
-			printk("[FW] %s reset/start %d failed.\n",
-			       tdev->fwdev.name, tdev->times);
+			tdev_prt("reset/start %d failed.\n", tdev->times);
 			tdev->state = ST_STOPPED;
 			break;
 		}
@@ -62,23 +68,23 @@ static int tdev_statm(struct tdev *tdev)
 		break;
 
 	case ST_RUNNING:
+		tdev_dbg("ask?\n");
 		if (tdev->ops->ask)
 			tdev->ops->ask(&tdev->fwdev);
 		break;
 
 	case ST_FINISHED:
+		tdev_dbg("check!\n");
 		if(tdev->ops->finished)
 			tdev->ops->finished(&tdev->fwdev);
 
 		ret = tdev->ops->check(&tdev->fwdev);
 		if (ret != CHK_PASSED) {
 			if (ret == CHK_FINISHED) {
-				printk("[FW] %s test finish.\n",
-				       tdev->fwdev.name);
+				tdev_prt("test finish.\n");
 				ret = 0;
 			} else
-				printk("[FW] %s test %d failed.\n",
-				       tdev->fwdev.name, tdev->times);
+				tdev_prt("test %d failed.\n", tdev->times);
 			tdev->ops->stop(&tdev->fwdev);
 			tdev->state = ST_STOPPED;
 			break;
@@ -87,8 +93,7 @@ static int tdev_statm(struct tdev *tdev)
 		break;
 
 	case ST_ERROR:
-		printk("[FW] %s errored at %d.\n",
-		       tdev->fwdev.name, tdev->times);
+		tdev_prt("errored at %d.\n", tdev->times);
 		tdev->ops->stop(&tdev->fwdev);
 		if (tdev->ops->release)
 			tdev->ops->release(&tdev->fwdev);
@@ -249,6 +254,7 @@ static void do_fw_help(char *str)
 {
 	printk("fw-tst all\nfw-tst show\n");
 	printk("fw-tst dev0 dev1 ...\n");
+	printk("fw-tst debug=[0|1]\n");
 }
 extern int cache_probe(void);
 static int do_fw(int argc,char *argv[])
@@ -261,6 +267,12 @@ static int do_fw(int argc,char *argv[])
 	if (strcmp(argv[1],"all") == 0) {
 		fw_reset_all(0);
 		fw_test_all();
+	}
+	else if (strncmp(argv[1],"debug",5) == 0) {
+		if (argv[1][5] == '=')
+			fw_debug = argv[1][6] == '0'? 0: 1;
+		else
+			return -1;
 	}
 	else if (strcmp(argv[1],"show") == 0)
 		fw_show_all();

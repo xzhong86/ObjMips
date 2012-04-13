@@ -41,12 +41,6 @@ struct my_data {
 	unsigned int phy;
 };
 
-#ifdef DEBUG
-#define pr_dbg	printk
-#else
-#define pr_dbg(arg...) do { } while(0)
-#endif
-
 static int my_prepare(struct fw_dev *dev)
 {
 	struct my_data *md;

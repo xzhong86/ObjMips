@@ -26,6 +26,12 @@ extern void cpu_wait(void);
 void printk(char *fmt, ...) __attribute__ ((__format__ (__printf__, 1, 2)));
 void ncsim_error_addr(void *a0,void *a1,void *a2,void *a3);
 
+#ifdef DEBUG
+#define pr_dbg	printk
+#else
+#define pr_dbg(arg...) do { } while(0)
+#endif
+
 
 #ifndef __used
 # define __used	__attribute__((__used__))

@@ -48,14 +48,14 @@ void irq_entry(struct cpu_regs *reg)
 	}
 	else if (cs & 0x400) {
 		irq = get_irq();
-		if(isrs[irq].fun) 
+		if (isrs[irq].fun) 
 			(isrs[irq].fun)(irq, isrs[irq].data);
 		else {
 			intc_mask(irq - IRQ_INTC_BASE);
 			bad_irqs ++;
 		}
 		irqs[cpu][irq] ++;
-		irqs[cpu][2] ++;
+		//irqs[cpu][2] ++;
 	}
 	else if (cs & 0x100) {
 		irq = 0;
@@ -118,6 +118,7 @@ void print_irqs(void)
 			printk("%-3d:%d\t%s\n",i,irqs[cpu][i],
 			       isrs[i].name?isrs[i].name:"no name");
 	}
+	printk("bad irq: %d\n", bad_irqs);
 }
 
 #include <command.h>

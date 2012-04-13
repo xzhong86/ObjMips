@@ -3,8 +3,9 @@ ROOT	= $(PWD)
 
 include config.mk
 
-obj-y	= main.o
-obj-y	+= base/ test/ fw-tst/ #device/
+obj-y	= base/
+obj-y	+= main.o
+obj-y	+= test/ fw-tst/ #device/
 
 # Command User Interface
 obj-$(CONFIG_CUI) += cui/

@@ -2,7 +2,6 @@
 
 #include <time.h>
 #include <pmon.h>
-#include <smp_stat.h>
 
 #ifdef CONFIG_SMP
 

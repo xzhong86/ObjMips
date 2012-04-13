@@ -4,25 +4,29 @@
 
 #include <base.h>
 #include <cache.h>
-#include "time.h"
+#include <ktime.h>
 
 int sys_gettimeofday(struct timeval *tv,struct timezone *tz)
 {
-	int ret = 0;
+	ktime_t	kt;
+
+	ktime_gettime(&kt);
 	if(tv) {
-		tv->tv_sec = ost_get_second();
-		tv->tv_usec = ost_get_nsecond() / 1000;
+		tv->tv_sec = kt.sec;
+		tv->tv_usec = kt.nsec / 1000;
 	}
-	return ret;
+	return 0;
 }
 
-typedef unsigned int time_t;
+//typedef unsigned int time_t;
 time_t sys_time(time_t *t)
 {
-	unsigned int sec = ost_get_second();
+	ktime_t	kt;
+
+	ktime_gettime(&kt);
 	if(t) 
-		*t = sec;
-	return sec;
+		*t = kt.sec;
+	return kt.sec;
 }
 
 int sys_exit(int exit_code)

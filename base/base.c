@@ -35,10 +35,12 @@ static void soft_init(void)
 
 extern int intc_init(void);
 extern int uart_init(void);
+extern int ost_init(void);
 static void base_device_init(void)
 {
 	intc_init();
 	uart_init();
+	ost_init();
 }
 
 extern void uart_early_init(void);

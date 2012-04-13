@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+//#define DEBUG
 #include <base.h>
 #include <init.h>
 #include <mem.h>

@@ -35,6 +35,7 @@ _tlb_miss:
 	lw	k0, 0(k1)
 	lw	k1, 4(k1)
 
+writetlb:
 	mtc0	zero, C0_PageMask
 	mtc0	k0, C0_EntryLo0
 	mtc0	k1, C0_EntryLo1
@@ -48,16 +49,10 @@ _tlb_miss:
 	nop
 
 badtlb:
-	mtc0	zero, C0_PageMask
 	li	k0, 0x400
-	mtc0	k0, C0_EntryLo0
-	addu	k0, k0, 0x400
-	mtc0	k0, C0_EntryLo1
-	nop
-	nop
-	nop
-	sll	$0, $0, 3	/* ehb */
-	tlbwr
-	nop
-	eret
+	b	writetlb
+	addu	k1, k0, 0x400
+
+	.set	at
+	.set	reorder
 	.end	_tlb_miss

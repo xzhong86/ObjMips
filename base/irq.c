@@ -115,7 +115,7 @@ void print_irqs(void)
 	printk("cpu%d irqs info:\n",cpu);
 	for (i = 0; i < IRQ_NR; i++) {
 		if (isrs[i].fun || irqs[cpu][i])
-			printk("%-3d:%d\t%s\n",i,irqs[cpu][i],
+			printk("%-3d:%8d %s\n",i,irqs[cpu][i],
 			       isrs[i].name?isrs[i].name:"no name");
 	}
 	printk("bad irq: %d\n", bad_irqs);

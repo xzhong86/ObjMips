@@ -271,20 +271,22 @@ static unsigned int  check_cim_frame(unsigned int * rtl_ptr, unsigned int pack_m
   UT_w2b ut_w2b;
   
   for(i=0; i <len; i++) {
-    ut_w2b.byte[0] = 0x13;
-    ut_w2b.byte[1] = 0x06;
+    ut_w2b.byte[3] = 0x13;
+    ut_w2b.byte[2] = 0x06;
     tmp_data = (i & 0x0000ff00) >> 8;
-    ut_w2b.byte[2] = tmp_data;
+    ut_w2b.byte[1] = tmp_data;
     tmp_data = i & 0x000000ff;
-    ut_w2b.byte[3] = tmp_data;
+    ut_w2b.byte[0] = tmp_data;
 
     itc_data = ut_w2b.word;
     itc_data = pack(pack_mode, itc_data);
 
     rtl_data = *(rtl_ptr + i);
 
-    if (rtl_data != itc_data)
+    if (rtl_data != itc_data) {
+      printk("chk %d %x %x\n",i,rtl_data,itc_data);
       return -1;
+    }
   }
 
   return 0;                                            

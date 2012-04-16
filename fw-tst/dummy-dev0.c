@@ -59,7 +59,7 @@ static chk_t my_check(struct fw_dev *dev)
 	return CHK_PASSED;
 }
 
-static void my_stop(struct fw_dev *dev)
+static void my_halt(struct fw_dev *dev)
 {
 	struct my_data *md = dev->priv;
 
@@ -75,7 +75,7 @@ static struct fw_ops mydev_ops = {
 	.start = my_start,
 	.ask = my_ask,
 	.check = my_check,
-	.stop = my_stop,
+	.halt = my_halt,
 };
 
 static int init_dev(void)

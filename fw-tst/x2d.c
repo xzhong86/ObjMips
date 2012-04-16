@@ -1885,7 +1885,7 @@ static chk_t x2d_check(struct fw_dev *dev)
   }
 }
 
-static void x2d_stop(struct fw_dev *dev)
+static void x2d_halt(struct fw_dev *dev)
 {
   struct x2d_data *x2d_p = dev->priv;
   
@@ -1921,7 +1921,7 @@ static struct fw_ops x2d_dev_ops = {
 	.ask = x2d_ask,
 #endif
 	.check = x2d_check,
-	.stop = x2d_stop,
+	.halt = x2d_halt,
 };
 
 static int init_dev(void)

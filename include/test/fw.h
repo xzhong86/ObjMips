@@ -38,10 +38,10 @@ struct fw_ops {
 	chk_t (*check)(struct fw_dev *);
 
 	/* stop test, stop device, force! */
-	void (*stop)(struct fw_dev *);
+	void (*halt)(struct fw_dev *);
 
-	/* release resource after stop(), like free mem,unmap IO,
-	   unregister IRQ, could be NULL if done in stop() */
+	/* release resource after halt(), like free mem,unmap IO,
+	   unregister IRQ, could be NULL if done in halt() */
 	void (*release)(struct fw_dev *);
 };
 
@@ -58,8 +58,5 @@ int fw_set_cpuallow(struct fw_dev *fwdev, unsigned long cpumask);
 struct fw_dev *fwdev_register(const char *name, struct fw_ops *ops);
 void fwdev_unregister(struct fw_dev *fwdev);
 
-
-/* test framework main loop */
-int fw_test_loop(void);
 
 #endif

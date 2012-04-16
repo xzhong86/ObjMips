@@ -85,7 +85,7 @@ static int tdev_statm(struct tdev *tdev)
 				ret = 0;
 			} else
 				tdev_prt("test %d failed.\n", tdev->times);
-			tdev->ops->stop(&tdev->fwdev);
+			tdev->ops->halt(&tdev->fwdev);
 			tdev->state = ST_STOPPED;
 			break;
 		}
@@ -94,7 +94,7 @@ static int tdev_statm(struct tdev *tdev)
 
 	case ST_ERROR:
 		tdev_prt("errored at %d.\n", tdev->times);
-		tdev->ops->stop(&tdev->fwdev);
+		tdev->ops->halt(&tdev->fwdev);
 		if (tdev->ops->release)
 			tdev->ops->release(&tdev->fwdev);
 		tdev->state = ST_STOPPED;
@@ -184,7 +184,7 @@ struct fw_dev *fwdev_register(const char *name, struct fw_ops *ops)
 	struct tdev *tdev, **tpp;
 
 	if (!ops || !ops->prepare || !ops->start || !ops->check
-	    || !ops->stop)
+	    || !ops->halt)
 		return NULL;
 
 	tdev = malloc(sizeof(*tdev));

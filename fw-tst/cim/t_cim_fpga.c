@@ -30,7 +30,8 @@ static int cim_prepare(Tfw_dw *dev)
   cim_frame4_ptr = (unsigned int *)mem_alloc(CIM_FRAME4_SIZE_B);
   cim_frame5_ptr = (unsigned int *)mem_alloc(CIM_FRAME5_SIZE_B);
 
-  if (!cim_frame0_ptr || !cim_frame1_ptr || !cim_frame2_ptr || !cim_frame3_ptr || !cim_frame4_ptr || !cim_frame5_ptr) {
+  if (!cim_frame0_ptr || !cim_frame1_ptr || !cim_frame2_ptr || 
+      !cim_frame3_ptr || !cim_frame4_ptr || !cim_frame5_ptr) {
     return -1;
   }
 
@@ -41,6 +42,9 @@ static int cim_prepare(Tfw_dw *dev)
   // need to config the gpio for pclk
   alter4vci();
 
+  init_default_dvi();
+  Dly_2(0xf);
+  enb_dvi();
   return 0;
 }
 
@@ -58,7 +62,7 @@ static int cim_reset(Tfw_dw *dev)
   set_pack(0);
   dis_dummy(); 
 
-  init_default_dvi();
+  //init_default_dvi();
 
   memset(cim_frame0_ptr, 0, CIM_FRAME0_SIZE_B);
   memset(cim_frame1_ptr, 0, CIM_FRAME1_SIZE_B);
@@ -66,13 +70,14 @@ static int cim_reset(Tfw_dw *dev)
   memset(cim_frame3_ptr, 0, CIM_FRAME3_SIZE_B);
   memset(cim_frame4_ptr, 0, CIM_FRAME4_SIZE_B);
   memset(cim_frame5_ptr, 0, CIM_FRAME5_SIZE_B);
+  blast_dcache();
 
   return 0;
 }
 
 static int cim_start(Tfw_dw *dev)
 {
-  enb_dvi();
+  //enb_dvi();
 
   enb_rxf_rst();
   Dly_2(0xf);
@@ -92,21 +97,19 @@ static void cim_ask(Tfw_dw *dev)
   flag = get_dma_stop();
 
   if (flag != 0) {
+    clr_dma_stop();
+    dis_vci_dma();
+    dis_vci();
+    //dis_dvi();
     fw_finish(dev);
   }
-}
-
-static void cim_stop(Tfw_dw *dev) 
-{
-  dis_vci_dma();
-  dis_vci();
-  dis_dvi();
 }
 
 static chk_t cim_check(Tfw_dw *dev)
 {
   unsigned int err = 0;
 
+  printk("cim fa %x da %x cmd %x\n",get_cimfa(),get_cimda(),get_cimcmd());
   err += check_cim_frame(cim_frame0_ptr, 0, CIM_FRAME0_SIZE_W);
   err += check_cim_frame(cim_frame1_ptr, 0, CIM_FRAME1_SIZE_W);
   err += check_cim_frame(cim_frame2_ptr, 0, CIM_FRAME2_SIZE_W);
@@ -117,13 +120,30 @@ static chk_t cim_check(Tfw_dw *dev)
   return err? CHK_FAILED: CHK_PASSED;
 }
 
+static void cim_halt(Tfw_dw *dev) 
+{
+  dis_vci_dma();
+  dis_vci();
+  dis_dvi();
+
+  mem_free(cim_frame0_ptr);
+  mem_free(cim_frame1_ptr);
+  mem_free(cim_frame2_ptr);
+  mem_free(cim_frame3_ptr);
+  mem_free(cim_frame4_ptr);
+  mem_free(cim_frame5_ptr);
+
+  iounmap(cim_base);
+  iounmap(gpio_base);
+}
+
 static struct fw_ops cim_ops = {
 	.prepare = cim_prepare,
 	.reset = cim_reset,
 	.start = cim_start,
 	.ask = cim_ask,
 	.check = cim_check,
-	.stop = cim_stop,
+	.halt = cim_halt,
 };
 
 static int init_dev(void)

@@ -106,7 +106,7 @@ static chk_t dma_check(struct fw_dev *dev)
 	return CHK_PASSED;
 }
 
-static void dma_stop(struct fw_dev *dev)
+static void dma_halt(struct fw_dev *dev)
 {
 	struct my_data *md = dev->priv;
 
@@ -123,7 +123,7 @@ static struct fw_ops dma_ops = {
 	.start = dma_start,
 	.ask = dma_ask,
 	.check = dma_check,
-	.stop = dma_stop,
+	.halt = dma_halt,
 };
 
 static int init_dev(void)

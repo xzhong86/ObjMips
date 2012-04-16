@@ -84,7 +84,7 @@ static chk_t cpuc_check(struct fw_dev *dev)
 	return CHK_PASSED;
 }
 
-static void cpuc_stop(struct fw_dev *dev)
+static void cpuc_halt(struct fw_dev *dev)
 {
 	struct my_data *md = dev->priv;
 
@@ -101,7 +101,7 @@ static struct fw_ops cpuc_ops = {
 	.start = cpuc_start,
 	.ask = cpuc_ask,
 	.check = cpuc_check,
-	.stop = cpuc_stop,
+	.halt = cpuc_halt,
 };
 
 static int init_dev(void)

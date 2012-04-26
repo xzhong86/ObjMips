@@ -51,3 +51,11 @@ void sys_get_mem_info(unsigned int *ptr)
 	ptr[1] = L1_icache.size;
 	ptr[2] = L1_dcache.size;
 }
+
+/* for compiler like mipsel 4.1.2 */
+extern unsigned long strtoul(char *, char **, int);
+unsigned long __attribute__((weak))
+__strtoul_internal(char *str, char **p, int x)
+{
+	return strtoul(str, p, x);
+}

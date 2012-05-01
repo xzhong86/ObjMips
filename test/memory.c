@@ -110,6 +110,35 @@ static int mcopy(void)
 	memcpy(t_mem, t_mem + t_size/2, t_size/2);
 	return t_size/2;
 }
+#include <cache.h>
+static int jzset(void)
+{
+	jz_memset(t_mem, 0x5a, t_size);
+	return t_size;
+}
+static int jzmset(void)
+{
+//	jz_memset(t_mem, 0x5a, t_size);
+	cache_pref(t_mem, 30);
+	int i,*dst = (int *)t_mem;
+	for (i=0; i<t_size; i+=256, dst +=64) {
+#define T(X)	do {							\
+		dst[X+0] = 0x5a; dst[X+1] = 0x5a; dst[X+2] = 0x5a; dst[X+3] = 0x5a; \
+		cache_pref(dst +X +8, 30);				\
+		dst[X+4] = 0x5a; dst[X+5] = 0x5a; dst[X+6] = 0x5a; dst[X+7] = 0x5a; \
+		cache_unroll(&dst[X+0], Hit_Writeback_D); \
+	} while (0)
+
+		T(0); T(8); T(16); T(24);
+		T(32); T(40); T(48); T(56);
+	}
+	return t_size;
+}
+static int jzcopy(void)
+{
+	jz_memcpy(t_mem, t_mem + t_size/2, t_size/2);
+	return t_size/2;
+}
 static void test_case(int (*fun)(void), char *desc)
 {
 	unsigned long tmp,cyc,cycle = 0;
@@ -139,12 +168,15 @@ static int memory(void)
 {
 	t_size = 8*1024*1024;
 	t_mem = mem_alloc(t_size);
-	test_case(mread, "seq read");
-	test_case(mwrite, "seq write");
-	test_case(jread, "j4w read");
-	test_case(jwrite, "j4w write");
-	test_case(mset, "std write");
-	test_case(mcopy, "std copy");
+//	test_case(mread, "seq read");
+//	test_case(jread, "j4w read");
+//	test_case(mwrite, "seq write");
+//	test_case(jwrite, "j4w write");
+//	test_case(mset, "std write");
+//	test_case(jzset, "jz write");
+//	test_case(jzmset, "jzm write");
+//	test_case(mcopy, "std copy");
+	test_case(jzcopy, "jz copy");
 
 	mem_free(t_mem);
 	return 0;

@@ -29,11 +29,26 @@ extern struct cache_info L1_icache,L1_dcache,L2_cache;
 		: "r" (base),			\
 		  "i" (op));
 
+#define cache_pref(base,op)	        	\
+	__asm__ __volatile__("	         	\
+		.set noreorder;		        \
+		.set mips32;		        \
+		pref %1, (%0);	                \
+		.set mips0;			\
+		.set reorder"			\
+		:				\
+		: "r" (base),			\
+		  "i" (op));
+
 void flush_icache_range(unsigned int start,unsigned int end);
 
 void flush_dcache_range(unsigned int start,unsigned int end);
 void invalid_dcache_range(unsigned int start,unsigned int end);
 void writeb_dcache_range(unsigned int start,unsigned int end);
+
+#define flush_dcache_ptr(P, N)						\
+	flush_dcache_range((unsigned)(P), (unsigned)((P) + (N)))
+
 
 void blast_icache(void);
 void blast_dcache(void);

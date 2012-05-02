@@ -1,7 +1,6 @@
 #include <stdio.h>
 
-#include "time.h"
-#include "pmon.h"
+#include <pmon.h>
 
 extern int main(int ,char**);
 int _call_main(int ac,char *av[])

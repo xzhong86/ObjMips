@@ -2,5 +2,6 @@
 .*.d
 .depend
 /include/config.h
+/base/link.lds
 /dump
 /mini

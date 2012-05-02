@@ -13,15 +13,18 @@ obj-$(CONFIG_CUI) += cui/
 include script/make-var.mk
 
 
-all: config subdir mini dump
+all: config subdir mini dump 
 
 config: $(ROOT)/include/config.h
 
 $(ROOT)/include/config.h: config.mk
 	$(ROOT)/script/gen_config.pl $< > $@
 
-mini: $(OBJS)
-	@echo "LINK -o $@"; $(LD) -T lib/link.lds -o $@  $^ $(LIBS)
+mini: $(OBJS) base/link.lds
+	@echo "LINK -o $@"; $(LD) -T base/link.lds -o $@  $(OBJS) $(LIBS)
+
+base/link.lds: base/link.lds.S include/config.h
+	$(GCC) -E -Iinclude $< | grep -v "^#" > $@
 
 dump: mini
 	@echo "DUMP > $@"; $(OBJDUMP) -d $< >| dump

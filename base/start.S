@@ -36,10 +36,6 @@
    .sbss section under embedded-pic, or before we've set up gp.  */
 #define LA(t,x) la t,x
 
-	.comm	__memsize, 12
-	.comm	__lstack, STARTUP_STACK_SIZE
-	.comm   __stackbase,4
-
 	.text
 	.align	2
 
@@ -51,9 +47,9 @@
 
 	.globl	fw_arg_arr
 
-	.globl	_start
-	.ent	_start
-_start:
+	.globl	_start_entry
+	.ent	_start_entry
+_start_entry:
 	.set	noreorder
 
 #define STATUS_MASK (SR_CU0)
@@ -102,14 +98,11 @@ _start:
 	nop
 3:
 	LA (gp, _gp)				# set the global data pointer
-	.end _start
+	.end _start_entry
 
 /*
  * zero out the bss section.
  */
-	.globl	__memsize
-	.globl	get_mem_info .text
-	.globl	__stack
 	.globl	__global
 	.globl	zerobss
 	.ent	zerobss
@@ -121,36 +114,7 @@ zerobss:
 	bltu	v0,v1,3b
 	addiu	v0,v0,4				# executed in delay slot
 	
-	la	t0, __lstack			# make a small stack so we
-	addiu	sp, t0, STARTUP_STACK_SIZE	# can run some C code
-	la	a0, __memsize			# get the usable memory size
-	jal	get_mem_info
-	nop
-
-	/* setup the stack pointer */
-	LA (t0, __stack)			# is __stack set ?
-	bne	t0,zero,4f
-	nop
-
-	/* NOTE: a0[0] contains the amount of memory available, and
-	         not the last memory address. */
-	lw	t0,0(a0)			# last address of memory available
-	la	t1,K0BASE			# cached kernel memory
-	addu	t0,t0,t1			# get the end of memory address
-	/* We must subtract 24 bytes for the 3 8 byte arguments to main, in
-	   case main wants to write them back to the stack.  The caller is
-	   supposed to allocate stack space for parameters in registers in
-	   the old MIPS ABIs.  We must do this even though we aren't passing
-	   arguments, because main might be declared to have them. 
-
-	   Some ports need a larger alignment for the stack, so we subtract
-	   32, which satisifes the stack for the arguments and keeps the
-	   stack pointer better aligned.  */
-	subu	t0,t0,32			# and generate a starting stack-pointer
-4:
-	move	sp,t0				# set stack pointer
 	li	sp,PCPU_SP_TOP(0)
-	sw	sp,__stackbase			# keep this for future ref
 	.end	zerobss
 
 /*
@@ -159,17 +123,13 @@ zerobss:
  */
 	.globl	_call_main
 
-	.globl	base_init_fun .text
+	.globl	base_entry_fun .text
 	.globl	atexit .text
 	.globl	exit .text
 	.globl	init
 	.ent	init
 init:
-	jal	base_init_fun
-	nop
-
-	move	a0,zero				# set argc to 0
-	jal	_call_main			# call the program start function
+	jal	base_entry_fun
 	nop
 
 	# fall through to the "exit" routine

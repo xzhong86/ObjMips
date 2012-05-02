@@ -1,42 +1,26 @@
 /* The following TEXT start address leaves space for the monitor
    workspace.  This linker script links isa32 programs for use with the
    simulator.  */
+#include <config.h>
 
-ENTRY(_start)
+#undef mips
+#define mips mips
+OUTPUT_ARCH(mips)
+ENTRY(_start_entry)
 OUTPUT_ARCH("mips:isa32")
 OUTPUT_FORMAT("elf32-tradlittlemips")
 /* GROUP(-lc -lidt -lgcc) */
 SEARCH_DIR(.)
 __DYNAMIC  =  0;
-/*STARTUP(tmpcrt0.o)*/
-
-/*
- * Allocate the stack to be at the top of memory, since the stack
- * grows down
- */
-PROVIDE (__stack = 0x81000000);
-/* PROVIDE (__global = 0); */
-
-/*
- * Initalize some symbols to be zero so we can reference them in the
- * crt0 without core dumping. These functions are all optional, but
- * we do this so we can have our crt0 always use them if they exist.
- * This is so BSPs work better when using the crt0 installed with gcc.
- * We have to initalize them twice, so we multiple object file
- * formats, as some prepend an underscore.
- */
-PROVIDE (hardware_exit_hook = 0);
-PROVIDE (hardware_hazard_hook = 0);
-PROVIDE (hardware_init_hook = 0);
-PROVIDE (software_init_hook = 0);
 
 SECTIONS
 {
+#ifdef CONFIG_NCSIM
   . = 0xbfc00000;
   .text_rom : {
      *(.text_rom)
   }
-
+#endif
   . = 0x80020000;
   .text : {
      _ftext = . ;

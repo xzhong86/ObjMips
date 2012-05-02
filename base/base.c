@@ -46,7 +46,8 @@ static void base_device_init(void)
 extern void uart_early_init(void);
 extern void param_init(void);
 extern void init_initcalls(void);
-void base_init_fun(void)
+extern int _call_main(int ac,char *av[]);
+int base_entry_fun(void)
 {
 	uart_early_init();
 	param_init();
@@ -55,6 +56,8 @@ void base_init_fun(void)
 
 	irq_enable();
 	init_initcalls();
+
+	return _call_main(0, NULL);
 }
 
 void print_c0_regs(void)

@@ -168,14 +168,14 @@ static int memory(void)
 {
 	t_size = 8*1024*1024;
 	t_mem = mem_alloc(t_size);
-//	test_case(mread, "seq read");
-//	test_case(jread, "j4w read");
-//	test_case(mwrite, "seq write");
-//	test_case(jwrite, "j4w write");
-//	test_case(mset, "std write");
-//	test_case(jzset, "jz write");
-//	test_case(jzmset, "jzm write");
-//	test_case(mcopy, "std copy");
+	test_case(mread, "seq read");
+	test_case(jread, "j4w read");
+	test_case(mwrite, "seq write");
+	test_case(jwrite, "j4w write");
+	test_case(mset, "std write");
+	test_case(jzset, "jz write");
+	test_case(jzmset, "jzm write");
+	test_case(mcopy, "std copy");
 	test_case(jzcopy, "jz copy");
 
 	mem_free(t_mem);

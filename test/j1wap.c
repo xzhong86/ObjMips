@@ -118,27 +118,26 @@ static struct {
 	CHKFUN(ahb2_single),
 	CHKFUN(ahb2_burst),
 	CHKFUN(ahb2_register),
-	CHKFUN(vpu_register),
+//	CHKFUN(vpu_register),
 	CHKFUN(ost_register),
 };
+#define NUM (sizeof(chk_funs)/sizeof(chk_funs[0]))
 static int j1wap(void)
 {
-	int i,t;
-	for (t = 0; t < 10000; t++)
-		for (i = 0; i < sizeof(chk_funs)/sizeof(chk_funs[0]); i++) {
-			if (rand()%2) /* 50% rate passed */
-				continue;
-			if (chk_funs[i].wrote) {
-				if (chk_funs[i].check())
-					break;
-				chk_funs[i].wrote = 0;
-			} else {
-				chk_funs[i].write();
-				chk_funs[i].wrote = 1;
-			}
+	int r,t;
+	for (t = 0; t < 10000*NUM; t++) {
+		r = rand() % NUM;
+		if (chk_funs[r].wrote) {
+			if (chk_funs[r].check())
+				break;
+			chk_funs[r].wrote = 0;
+		} else {
+			chk_funs[r].write();
+			chk_funs[r].wrote = 1;
 		}
+	}
 	if (t != 10000) {
-		printk("err when check %d.\n", i);
+		printk("err when check %d.\n", r);
 		return -1;
 	}
 	return 0;

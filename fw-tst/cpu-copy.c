@@ -78,8 +78,9 @@ static chk_t cpuc_check(struct fw_dev *dev)
 	for (i = 0; i < MSIZE/BSIZE; i++)
 		if (md->mem[0] != md->mem[i*BSIZE/4])
 			return CHK_FAILED;
-
-	if (md->times ++ > 10)
+	if (md->times % 8 == 7)
+		printk("cpu copied %d times.\n",md->times);
+	if (md->times ++ > 1000000)	/* finish times */
 		return CHK_FINISHED;
 	return CHK_PASSED;
 }

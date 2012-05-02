@@ -11,3 +11,4 @@ obj-y += cpu-copy.o
 obj-y += x2d.o
 obj-y += cim/
 obj-y += pdma/
+obj-y += lcd_tc/

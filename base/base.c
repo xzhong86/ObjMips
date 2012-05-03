@@ -35,11 +35,13 @@ static void soft_init(void)
 	printk("soft_init() finished.\n");
 }
 
+extern int ddrc_init(void);
 extern int intc_init(void);
 extern int uart_init(void);
 extern int ost_init(void);
 static void base_device_init(void)
 {
+	ddrc_init();
 	intc_init();
 	uart_init();
 	ost_init();

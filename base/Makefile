@@ -9,6 +9,6 @@ obj-y	+= mem.o ktime.o
 obj-y 	+= switch.o thread.o
 
 # Basic devices for OBJ-MIPS
-obj-y	+= dev-intc.o dev-uart.o dev-ost.o
+obj-y	+= dev-ddrc.o dev-intc.o dev-uart.o dev-ost.o
 
 obj-$(CONFIG_NCSIM) += rom.o

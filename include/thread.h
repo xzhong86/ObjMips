@@ -15,6 +15,8 @@ struct thread_task {
 		THREAD_STATE_EXIT,
 	} state;
 	unsigned int cpumask;
+	unsigned int stack_size;
+	unsigned int stack_top;
 
 	struct thread_head *thread;
 	unsigned long cp0_epc, cp0_badvaddr;

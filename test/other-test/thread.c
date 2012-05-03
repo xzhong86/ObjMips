@@ -25,6 +25,7 @@ static int test_thread(void)
 		printk("main yield %p\n", &i);
 		thread_yield();
 	}
+	thread_yield();
 	return 0;
 }
 DEF_TEST(test_thread, 30, TESTF_REPEAT);

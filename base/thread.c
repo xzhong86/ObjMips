@@ -63,6 +63,8 @@ int __thread_create(thread_fun_t fun, void *data, const char *name,
 	t->task.cp0_status = SR_CU0;
 	strncpy(t->task.name, name, THREAD_NAME_LEN);
 	t->task.name[THREAD_NAME_LEN - 1] = 0;
+	t->task.stack_size = stack_size;
+	t->task.stack_top = vaddr + stack_size;
 	t->task.cpumask = cpumask;
 	t->task.fun = fun;
 	t->task.data = data;
@@ -156,10 +158,12 @@ void new_thread_init(void)
 	*(volatile int*)1;		/* BUG */
 }
 
+#include <pcpu.h>
 int thread_init(void)
 {
 	struct task *t;
 	struct thread_head *head;
+	int cpu = smp_cpu_id();
 
 	t = malloc(sizeof(*t));
 	head = malloc(sizeof(*head));
@@ -174,7 +178,9 @@ int thread_init(void)
 	t->task.name[THREAD_NAME_LEN - 1] = 0;
 	t->task.cpumask = 1;
 	t->task.state = THREAD_STATE_RUNNING;
+	t->task.stack_size = __SMP_SIZE;
+	t->task.stack_top = PCPU_BASE(cpu) + __SMP_SIZE;
 
-	__current_thread[smp_cpu_id()] = &t->task;
+	__current_thread[cpu] = &t->task;
 	return 0;
 }

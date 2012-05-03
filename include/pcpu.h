@@ -2,7 +2,7 @@
 #ifndef PCPU_H
 #define PCPU_H
 
-#define __SMP_SIZE (0x100000)
+#define __SMP_SIZE (0x10000)	/* 64KB */
 #define __SMP_MASK (__SMP_SIZE - 1)
 #define PCPU_BASE(cpu)  (0x81000000+(cpu)*__SMP_SIZE)
 #define PCPU_HIGH(cpu)  (PCPU_BASE(cpu)+__SMP_SIZE-1)

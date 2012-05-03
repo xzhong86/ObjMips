@@ -11,4 +11,17 @@ typedef arch_spinlock_t spinlock_t;
 
 #define spinlock_init(lock)	ARCH_SPIN_LOCK_INIT(lock)
 
+
+typedef arch_rwlock_t rwlock_t;
+
+#define rw_read_lock(lock) 	arch_read_lock(&(lock))
+#define rw_read_unlock(lock) 	arch_read_unlock(&(lock))
+#define rw_read_trylock(lock) 	arch_read_trylock(&(lock))
+
+#define rw_write_lock(lock) 	arch_write_lock(&(lock))
+#define rw_write_unlock(lock) 	arch_write_unlock(&(lock))
+#define rw_write_trylock(lock) 	arch_write_trylock(&(lock))
+
+#define rwlock_init(lock)	ARCH_RW_LOCK_INIT(lock)
+
 #endif

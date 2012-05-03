@@ -10,3 +10,4 @@ obj-y += tst_uca1.o
 #obj-y += tst_uca_wrb.o
 #obj-y += tst_ddr.o
 obj-y += tst_buddy.o
+obj-y += thread.o

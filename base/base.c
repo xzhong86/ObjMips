@@ -21,6 +21,7 @@ extern int setup_trap(void);
 extern int cache_init(void);
 extern int mem_init(void);
 extern int mmu_init(void);
+extern int thread_init(void);
 static void soft_init(void)
 {
 	//blast_cache_all();
@@ -30,6 +31,7 @@ static void soft_init(void)
 	setup_trap();
 	mem_init();
 	mmu_init();
+	thread_init();
 	printk("soft_init() finished.\n");
 }
 

@@ -8,6 +8,7 @@
 #include <mem.h>
 #include <spinlock.h>
 #include <thread.h>
+#include <sem.h>
 
 struct thread_task *__current_thread[CPU_NR];
 
@@ -15,15 +16,18 @@ struct task {
 	struct thread_task task;
 	struct page *page;
 	int nr_page;
+	sem_t exit;
 	struct task *next;
 };
 struct task_list {
 	struct task *running, *sleep, *dead;
-	rwlock_t list_lock;
+	spinlock_t list_lock;
 } task_list;
 
-int __thread_create(thread_fun_t fun, void *data, const char *name,
-		    unsigned cpumask, int stack_size)
+static unsigned int thread_id = CPU_NR;
+struct thread_task * 
+__thread_create(thread_fun_t fun, void *data, const char *name,
+		unsigned cpumask, int stack_size)
 {
 	int flags, nrpg;
 	unsigned long vaddr;
@@ -32,7 +36,7 @@ int __thread_create(thread_fun_t fun, void *data, const char *name,
 
 	if (stack_size) {
 		if (stack_size < PAGE_SIZE || stack_size % PAGE_SIZE)
-			return -1;
+			return NULL;
 	} else {
 		stack_size = PAGE_SIZE * 2;
 	}
@@ -40,15 +44,17 @@ int __thread_create(thread_fun_t fun, void *data, const char *name,
 
 	t = malloc(sizeof(*t));
 	if (!t)
-		return -1;
+		return NULL;
 	memset(t, 0, sizeof(*t));
 
 	t->page = mem_get_pages(nrpg, MEM_LOW);
 	if (!t->page) {
 		free(t);
-		return -1;
+		return NULL;
 	}
 	t->nr_page = nrpg;
+	sem_init(&t->exit, 0);
+
 	vaddr = PHYS_TO_K0(mem_page2phy(t->page));
 	thread = (struct thread_head*)vaddr;
 
@@ -63,6 +69,7 @@ int __thread_create(thread_fun_t fun, void *data, const char *name,
 	t->task.cp0_status = SR_CU0;
 	strncpy(t->task.name, name, THREAD_NAME_LEN);
 	t->task.name[THREAD_NAME_LEN - 1] = 0;
+	t->task.tid = thread_id++;
 	t->task.stack_size = stack_size;
 	t->task.stack_top = vaddr + stack_size;
 	t->task.cpumask = cpumask;
@@ -73,15 +80,42 @@ int __thread_create(thread_fun_t fun, void *data, const char *name,
 	t->next = NULL;
 
 	local_irq_save(&flags);
-	rw_write_lock(task_list.list_lock);
+	spinlock_lock(task_list.list_lock);
 
 	t->next = task_list.running;
 	task_list.running = t;
 
-	rw_write_unlock(task_list.list_lock);
+	spinlock_unlock(task_list.list_lock);
 	local_irq_restore(&flags);
 
-	return 0;
+	return &t->task;
+}
+
+static void __clean_dead(struct task_list *tl, thread_t *thd)
+{
+	struct task **pp;
+	for (pp = &tl->dead; *pp; pp = &(*pp)->next) {
+		struct task *t;
+		if (&(*pp)->task != thd)
+			continue;
+		t = *pp;
+		*pp = t->next;
+		mem_free_pages(t->page, t->nr_page);
+		free(t);
+		break;
+	}
+}
+static void clean_thread(thread_t *thd)
+{
+	int flags;
+
+	local_irq_save(&flags);
+	spinlock_lock(task_list.list_lock);
+
+	__clean_dead(&task_list, thd);
+
+	spinlock_unlock(task_list.list_lock);
+	local_irq_restore(&flags);
 }
 
 extern void thread_switch(struct thread_head *cur,struct thread_head *next,
@@ -93,7 +127,7 @@ void thread_yield(void)
 	struct task **pp;
 
 	local_irq_save(&flags);
-	rw_write_lock(task_list.list_lock);
+	spinlock_lock(task_list.list_lock);
 
 	cpu = smp_cpu_id();
 	cur = container_of(current_thread(cpu), struct task, task);
@@ -129,10 +163,31 @@ void thread_yield(void)
 	write_c0_epc(current_thread(cpu)->cp0_epc);
 
 out:
-	rw_write_unlock(task_list.list_lock);
+	spinlock_unlock(task_list.list_lock);
 	local_irq_restore(&flags);
 }
+void thread_exit(int err)
+{
+	struct thread_task *cur;
+	struct task *t;
 
+	cur = current_thread(smp_cpu_id());
+	cur->exit_code = err;
+	cur->state = THREAD_STATE_EXIT;
+	if (err)
+		printk("thread %s exit %d.\n", cur->name, err);
+	if (cur->tid < CPU_NR) {
+		printk("thread %s(%d) should NOT exit.\n", 
+		       cur->name, cur->tid);
+		return;
+	}
+	t = container_of(cur, struct task, task);
+	sem_up(&t->exit, 0);
+	sem_free(&t->exit);
+	thread_yield();
+
+	*(volatile int*)1;		/* BUG */
+}
 void new_thread_init(void)
 {
 	struct thread_task *cur;
@@ -144,19 +199,58 @@ void new_thread_init(void)
 	write_c0_status(cur->cp0_status);
 	write_c0_cause(cur->cp0_cause);
 
-	rw_write_unlock(task_list.list_lock);
+	spinlock_unlock(task_list.list_lock);
 	irq_enable();
 
 	/* run thread ! */
 	ret = cur->fun(cur->data);
-	if (ret)
-		printk("thread %s exit %d.\n", cur->name, ret);
 
-	cur->state = THREAD_STATE_EXIT;
-	thread_yield();
-
-	*(volatile int*)1;		/* BUG */
+	thread_exit(ret);
 }
+
+int thread_wait(struct thread_task *thd)
+{
+	int ret = -1;
+	struct task *waitt;
+
+	waitt = container_of(thd, struct task, task);
+	sem_down(&waitt->exit, 1);
+
+	ret = thd->exit_code;
+	clean_thread(thd);
+	return ret;
+}
+int thread_wakeup(struct thread_task *thd)
+{
+	int flags, ret = -1;
+	struct task *t;
+	struct task **pp;
+
+	local_irq_save(&flags);
+	spinlock_lock(task_list.list_lock);
+
+	for (pp = &task_list.sleep; *pp; pp = &(*pp)->next)
+		if (&(*pp)->task == thd)
+			break;
+	if (*pp) {
+		t = *pp;
+		*pp = t->next;
+		t->next = task_list.running;
+		task_list.running = t;
+		t->task.state = THREAD_STATE_RUNNING;
+		ret = 0;
+	} else {
+		if (thd && thd->state != THREAD_STATE_EXIT) {
+			thd->state = THREAD_STATE_RUNNING;
+			ret = 0;
+		}
+	}
+
+	spinlock_unlock(task_list.list_lock);
+	local_irq_restore(&flags);
+	return ret;
+}
+
 
 #include <pcpu.h>
 int thread_init(void)
@@ -174,8 +268,9 @@ int thread_init(void)
 	t->task.thread = head;
 	head->task = &t->task;
 
-	strncpy(t->task.name, "idle0", THREAD_NAME_LEN);
-	t->task.name[THREAD_NAME_LEN - 1] = 0;
+	strcat(t->task.name, "idle0");
+	t->task.name[4] += cpu;
+	t->task.tid = cpu;
 	t->task.cpumask = 1;
 	t->task.state = THREAD_STATE_RUNNING;
 	t->task.stack_size = __SMP_SIZE;

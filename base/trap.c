@@ -5,6 +5,7 @@
 #include <irq.h>
 #include <smp.h>
 #include <base.h>
+#include <thread.h>
 
 static void show_regs(struct cpu_regs *reg);
 static void show_code(struct cpu_regs *reg);
@@ -17,6 +18,9 @@ static void seg_fault(int read, struct cpu_regs *reg, char *msg)
 	show_regs(reg);
 	show_code(reg);
 	show_stack(reg);
+	if (current_thread(smp_cpu_id())->tid >= CPU_NR) {
+		thread_exit(-1);
+	}
 	while(1) {
 		cpu_wait();
 	}

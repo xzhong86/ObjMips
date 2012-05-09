@@ -31,7 +31,7 @@ unsigned long long sched_clock(void)
 	do {
 		tick = ost_ticks;
 		/* in case 12MHz */
-		time = REG32(OSTDR) * (1000*HZ/12);
+		time = REG32(OSTCNT) * (1000*HZ/12);
 		time += tick * (1000000000UL / HZ);
 	} while (tick != ost_ticks);
 	return time;

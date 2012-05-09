@@ -6,7 +6,7 @@ obj-y   += smp_msg.o smp_fun.o
 obj-y   += pmon.o sys.o cmain.o init.o
 obj-y	+= mem.o ktime.o
 
-obj-y 	+= switch.o thread.o
+obj-y 	+= switch.o thread.o sem.o
 
 # Basic devices for OBJ-MIPS
 obj-y	+= dev-ddrc.o dev-intc.o dev-uart.o dev-ost.o

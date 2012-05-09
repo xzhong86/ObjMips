@@ -5,10 +5,17 @@ include config.mk
 
 obj-y	= base/
 obj-y	+= main.o
-obj-y	+= test/ fw-tst/ #device/
 
 # Command User Interface
 obj-$(CONFIG_CUI) += cui/
+
+# devicies, not ready now
+#obj-y	+= device/
+
+# test cases
+obj-y	+= test/
+#obj-y	+= fw-tst/
+
 
 include script/make-var.mk
 

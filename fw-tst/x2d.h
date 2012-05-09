@@ -1,5 +1,5 @@
-#ifndef __T_DUMMY_X2D_H__
-#define __T_DUMMY_X2D_H__
+#ifndef __T_X2D_H__
+#define __T_X2D_H__
 
 #define X2D_V_BASE 0xB3030000
 #define X2D_P_BASE 0x13030000
@@ -210,10 +210,22 @@ typedef unsigned char uint8_t;
 #define LAY_VRSZ_C_MSK 0xFFFF
 #define LAY_VRSZ_C_SFT 16
 
+#define SHARPL0 0
+#define SHARPL1 1
+#define SHARPL2 2
+#define SHARPL3 3
 
+#define DDR_BANK_1K 0
+#define DDR_BANK_2K 1
+#define DDR_BANK_4K 2
+
+#define DST_ARGB 0
+#define DST_XRGB888 1
+#define DST_RGB555 2
+#define DST_RGB565 3
 
 typedef struct x2d_lay_info
-{
+{ // Order Cannot be Changed!
   uint8_t lay_ctrl;
   uint8_t lay_galpha;
   uint8_t rom_ctrl; //rotate and mirror control
@@ -240,22 +252,25 @@ typedef struct x2d_lay_info
 }x2d_lay_info, *x2d_lay_info_p;
 
 typedef struct x2d_chain_info
-{
+{ // Order Cannot be Changed!
   uint16_t   overlay_num;
   uint16_t   dst_tile_en;
   uint32_t   dst_addr;
   uint32_t   dst_ctrl_str;
   uint16_t   dst_width;
   uint16_t   dst_height;
+  uint32_t   dst_argb;
+  uint32_t   dst_fmt;
   x2d_lay_info x2d_lays[4];
 }x2d_chain_info, *x2d_chain_info_p;
 
-/*
+/* Test prepare setups:
   1. Orignal Source
   2. Fix Rotate Mirror RGBM NV21
   3. Expand UV 
 */
 typedef struct  x2d_tbench_lay_verc{
+  /*  Layer Base Information  */
   uint32_t  ilay_en;
   uint32_t  ilayer_tlb_en;
   uint32_t  ilay_pm;
@@ -274,21 +289,32 @@ typedef struct  x2d_tbench_lay_verc{
 
   uint32_t ilay_src_width;
   uint32_t ilay_src_height;
-  //-----------------------
-  uint32_t* ilay_argb_addr;
-  uint32_t  ilay_argb_str;
-
-  uint32_t ilay_dst_width;
-  uint32_t ilay_dst_height;
-
-  uint32_t ilay_dst_xoft;
-  uint32_t ilay_dst_yoft;
-
   uint32_t  ilay_smode;
   uint32_t ilay_osdm;
   uint32_t ilay_rgbm;
 
-  //-----------------------
+  uint32_t ilay_hrsz_coef;
+  uint32_t ilay_vrsz_coef; 
+  
+  // Orignal Raw Pixels
+  uint32_t* ilay_argb_addr;
+  uint32_t  ilay_argb_str;
+
+  // Raw Pixels for Hardware
+  uint32_t* ilay_y_addr;
+  uint32_t* ilay_u_addr;
+  uint32_t* ilay_v_addr;
+  uint32_t  ilay_y_str;
+  uint32_t  ilay_uv_str;
+
+  // Destination parameters
+  uint32_t ilay_dst_width;
+  uint32_t ilay_dst_height;
+  uint32_t ilay_dst_xoft;
+  uint32_t ilay_dst_yoft;
+
+
+  /* Debug Use --> */
   uint32_t* ilay_rota_addr;
   uint32_t  ilay_rota_w;
   uint32_t  ilay_rota_h;
@@ -298,20 +324,17 @@ typedef struct  x2d_tbench_lay_verc{
   uint32_t  ilay_rota_ycoef;
 
   uint32_t  ilay_rot_y_str;
+  uint32_t* ilay_rot_y_addr;
+  uint32_t* ilay_rot_u_addr;
+  uint32_t* ilay_rot_v_addr;
 
-  uint32_t* ilay_yaddr;
-  uint32_t  ilay_ystr;
-  uint32_t* ilay_uaddr;
-  uint32_t* ilay_vaddr;
-  uint32_t  ilay_uvstr;
-
-
-  uint32_t ilay_hrsz_coef;
-  uint32_t ilay_vrsz_coef; 
-
+  uint32_t* ilay_ep_y_addr;
+  uint32_t* ilay_ep_u_addr;
+  uint32_t* ilay_ep_v_addr;
 
   uint32_t * ilay_rsz_addr;
   uint32_t   ilay_rsz_str;
+  /* <-- Debug Use */
   
 }x2d_tbench_lay_verc, *x2d_tbench_lay_verc_p;
 
@@ -327,15 +350,22 @@ typedef struct  x2d_tbench_layb_verc{
   uint32_t  ilay_height;
 
   uint32_t  ilay_argb_str;
-  uint32_t* ilay_argb_addr;   // this will be used for x2d
+  uint32_t* ilay_argb_addr; // Temp value , Software's Orignal pixels
 
   uint32_t   ilay_std_str;
-  uint32_t * ilay_std_addr; // this will be used for ref result
+  uint32_t * ilay_std_addr; // Software result
+  
+  uint32_t   ilay_raw_str;  // Backup raw pixels
+  uint32_t * ilay_raw_addr; // 
 
-  uint32_t   ilay_raw_str;
-  uint32_t * ilay_raw_addr; // this will be used for ref result
+  //stride and base address must to be DW aligned !
+  uint32_t   ilay_hw_str;  // the stripe is diff from ilay_argb_str when DST_FMT is { RGB555 or RGB565 }
+  uint32_t * ilay_hw_addr; // Hardware result
 
   uint32_t  ilay_bak_argb;
+  uint32_t  ilay_apos;
+  uint32_t  ilay_fmt;
+  uint32_t  ilay_rgb_mode;
 
 }x2d_tbench_layb_verc, *x2d_tbench_layb_verc_p;
 
@@ -344,9 +374,20 @@ typedef struct x2d_tbench_verc_info{
   uint16_t lay_num;
   uint16_t cmd_tlb_en;
   uint16_t dst_tlb_en;
+  uint16_t ddr_bank_sel;
+  uint8_t  shart_level;
   x2d_tbench_layb_verc layb_ver;
   x2d_tbench_lay_verc  layx_ver[4];
 }x2d_tbench_verc_info, *x2d_tbench_verc_info_p;
+
+typedef struct x2d_pic_info{
+  uint32_t *pic_buf;
+  uint32_t pic_w;
+  uint32_t pic_h;
+  uint32_t pic_str;  
+  uint32_t pic_en;
+  uint32_t chns;
+}x2d_pic_info, *x2d_pic_info_p;
 
 
 #define X2D_OSD_MSRC_OVER 0

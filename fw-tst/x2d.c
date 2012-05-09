@@ -16,17 +16,24 @@
 #include <time.h>
 #include "x2d.h"
 
-#define SEED_CFG
+//#include "data/1088x720_background.h"
+//#include "data/720x1088_background.h"
+//#include "data/640x480_background.h"
+//#include "data/480x640_background.h"
+#include "data/480x272_background.h"
+#include "data/272x480_background.h"
+
+//#define SEED_CFG
 #define SEED_CORE 0x158f5
 
 #define MAX_X2D_TEST_TIMES 1000
 
-//#define X2D_DEBUG_M
+//#define X2D_DEBUG
 #define X2D_SHOW
+#define USER_CFG_OPT
 
 #define X2D_IRQ_ID 19
 #define X2D_IRQ_MODE
-//#define USER_CFG_OPT
 
 #define LAY_SRC_SMAXW 520
 #define LAY_SRC_SMAXH 520
@@ -43,9 +50,11 @@ static volatile int *x2d_base;
 
 #define read_x2d_reg(off) (*(x2d_base + (off)/4))
 
+#define TEST_SIZE (1024*1024)
+
 struct x2d_data {
-#define TEST_SIZE 200*1024
   int times;
+  int resize_level;
   x2d_chain_info_p chn_ptr;
   x2d_tbench_verc_info_p verc_ptr;
 };
@@ -53,10 +62,39 @@ struct x2d_data {
 
 #define sat_to_0_255(a)  ( (int)(a) > 255 ? 255 : (int)(a)<0? 0 : (a) )
 
+#ifdef X2D_IRQ_MODE
+static void x2d_irq_handle(int irq, void *d)
+{
+	struct fw_dev *dev = d;
+	write_x2d_reg(X2D_SLV_GLB_TRIG, X2D_IRQ_CLR);  
+#ifdef X2D_DEBUG
+    printk(" > x2d_irq_handle catch \n");
+#endif
+	fw_finish(dev);
+#ifdef X2D_DEBUG
+    printk(" > Out x2d_irq_handle \n");
+#endif
+}
+#endif
+
+
 uint32_t get_coef(uint32_t x) //coef * 512
 {
   
-  int32_t a = -2;
+  int32_t a;
+#if 0
+  if ( resize_level == SHARPL0)
+    a = -0.5*4;
+  else if ( resize_level == SHARPL1)
+    a = -0.75*4;
+  else if ( resize_level == SHARPL2)
+    a = -1*4;
+  else if ( resize_level == SHARPL3)
+    a = -2*4;
+#else
+    a = -0.5*4;
+#endif
+
   int32_t a_plus_3 = (a + 3*4);
   int32_t a_plus_2 = (a + 2*4);
   //double x_point = (double)x/512;
@@ -76,6 +114,8 @@ uint32_t get_coef(uint32_t x) //coef * 512
     int32_t final_result = x3_result + one_min_x2_result;
 
     final_result = final_result >> 2;
+
+
     return final_result;
   }
   else if ( x <= 1024 ){
@@ -83,15 +123,13 @@ uint32_t get_coef(uint32_t x) //coef * 512
     int32_t x3 = x*x*x; //coef*coef*512*512*coef*512
     int32_t a4 = 4*a*512;
     int32_t x_result = ( 8 * a * x );
-
     int32_t x_result_min_4a = x_result - a4;
-
     int32_t x2_result =  ( 5*a*x2 ) >> 9;
     int32_t x2_result_min_xresult = x2_result - x_result_min_4a;
-
-    int32_t x3_result = ( a*x3 ) >> 18;
+    long long x3_result = ( (long long)a*(long long)x3 ) >> 18;
     int32_t x3_result_final = x3_result - x2_result_min_xresult;
     x3_result_final = x3_result_final >> 2;
+
     return x3_result_final;
   }
   else
@@ -100,32 +138,89 @@ uint32_t get_coef(uint32_t x) //coef * 512
 
 
 void blk_copyw_fm(
-		   uint32_t *src, uint32_t src_w, uint32_t src_h, uint32_t src_str,
-		   uint32_t *dst, uint32_t dst_w, uint32_t dst_h, uint32_t dst_str,
-		   uint32_t bk_argb, uint32_t tile
+		   uint32_t *src, uint32_t dst_w, uint32_t dst_h, uint32_t src_str,
+		   uint32_t *dst, uint32_t dst_str,
+		   uint32_t tile_en , uint32_t fmt , uint32_t rgbm ,uint32_t apos
 		   )
 {
   uint32_t x;
   uint32_t y;
-  for ( y = 0; y < dst_h; y++)
+
+  uint16_t *hf_ptr = (uint16_t *)dst;
+
+  uint32_t src_pix;
+  
+  uint32_t new_rgb = 0;
+  
+  for ( y = 0; y < dst_h; y++){
     for ( x = 0; x < dst_w; x++)
       {
-	if ( tile == 0 ){ 
-	  if ( x >= src_w || y >= src_h )
-	    dst[x+y*(dst_str/(sizeof(uint32_t)))] = bk_argb;
+	src_pix = src[x+y*(src_str/(sizeof(uint32_t)))];
+
+	if( fmt == DST_ARGB || fmt == DST_XRGB888 ){
+	  uint32_t tmpa = (src_pix >> 24)&0xFF;
+	  uint32_t tmpr = (src_pix >> 16)&0xFF;
+	  uint32_t tmpg = (src_pix >> 8)&0xFF;
+	  uint32_t tmpb = (src_pix >> 0)&0xFF;
+
+	  switch ( rgbm ){
+	  case SRC_FMT_RGB: new_rgb = (tmpr << 16) | (tmpg << 8) | (tmpb << 0); break;
+	  case SRC_FMT_BGR: new_rgb = (tmpb << 16) | (tmpg << 8) | (tmpr << 0); break;
+	  case SRC_FMT_RBG: new_rgb = (tmpr << 16) | (tmpb << 8) | (tmpg << 0); break;
+	  case SRC_FMT_GBR: new_rgb = (tmpg << 16) | (tmpb << 8) | (tmpr << 0); break;
+	  case SRC_FMT_GRB: new_rgb = (tmpg << 16) | (tmpr << 8) | (tmpb << 0); break;
+	  case SRC_FMT_BRG: new_rgb = (tmpb << 16) | (tmpr << 8) | (tmpg << 0); 
+	  }
+
+	  uint32_t new_argb;
+	  if ( apos )
+	    new_argb = (new_rgb<<8) | tmpa;
 	  else
-	    dst[x+y*(dst_str/(sizeof(uint32_t)))] = src[x+y*(src_str/(sizeof(uint32_t)))];
-	}else{
-	  uint32_t x_new;
-	  x_new = ((x/16)*256) + x%16 + (y%16)*16;
-	  uint32_t y_new;
-	  y_new = y/16;
-	  if ( x >= src_w || y >= src_h )
-	    dst[x_new+y_new*(dst_str/(sizeof(uint32_t)))] = bk_argb;
-	  else
-	    dst[x_new+y_new*(dst_str/(sizeof(uint32_t)))] = src[x+y*(src_str/(sizeof(uint32_t)))];
+	    new_argb = (new_rgb) | (tmpa << 24);
+
+	  if ( tile_en){ 
+	    uint32_t x_new;
+	    x_new = ((x/16)*256) + x%16 + (y%16)*16;
+	    uint32_t y_new;
+	    y_new = y/16;
+	    dst[x_new + y_new*(dst_str/sizeof(uint32_t))] = new_argb;
+	  }else{
+	    dst[x + y*(dst_str/sizeof(uint32_t))] = new_argb;
+	  }
+	  
+
+	}else if( fmt == DST_RGB555 ){
+	  uint32_t tmpb = ( (src_pix & 0xF8) >>3) & 0x1F;
+	  uint32_t tmpg = ( (src_pix & 0xF800) >>11) & 0x1F;
+	  uint32_t tmpr = ( (src_pix & 0xF80000) >>19) & 0x1F;
+
+	  switch ( rgbm ){
+	  case SRC_FMT_RGB: new_rgb = (tmpr << 10) | (tmpg << 5) | (tmpb << 0); break;
+	  case SRC_FMT_BGR: new_rgb = (tmpb << 10) | (tmpg << 5) | (tmpr << 0); break;
+	  case SRC_FMT_RBG: new_rgb = (tmpr << 10) | (tmpb << 5) | (tmpg << 0); break;
+	  case SRC_FMT_GBR: new_rgb = (tmpg << 10) | (tmpb << 5) | (tmpr << 0); break;
+	  case SRC_FMT_GRB: new_rgb = (tmpg << 10) | (tmpr << 5) | (tmpb << 0); break;
+	  case SRC_FMT_BRG: new_rgb = (tmpb << 10) | (tmpr << 5) | (tmpg << 0); 
+	  }
+	  hf_ptr[x + y * (dst_str/sizeof(uint16_t))] = new_rgb;
+	}else if( fmt == DST_RGB565 ){
+	  uint32_t tmpb = ( (src_pix & 0xF8) >>3) & 0x1F;
+	  uint32_t tmpg = ( (src_pix & 0xFC00) >>10) & 0x3F;
+	  uint32_t tmpr = ( (src_pix & 0xF80000) >>19) & 0x1F;
+
+	  switch ( rgbm ){
+	  case SRC_FMT_RGB: new_rgb = (tmpr << 11) | (tmpg << 5) | (tmpb << 0); break;
+	  case SRC_FMT_BGR: new_rgb = (tmpb << 11) | (tmpg << 5) | (tmpr << 0); break;
+	  case SRC_FMT_RBG: new_rgb = (tmpr << 11) | (tmpb << 6) | (tmpg << 0); break;
+	  case SRC_FMT_GBR: new_rgb = (tmpg << 10) | (tmpb << 5) | (tmpr << 0); break;
+	  case SRC_FMT_GRB: new_rgb = (tmpg << 10) | (tmpr << 5) | (tmpb << 0); break;
+	  case SRC_FMT_BRG: new_rgb = (tmpb << 11) | (tmpr << 6) | (tmpg << 0); 
+	  }
+	  hf_ptr[x + y * (dst_str/sizeof(uint16_t))] = new_rgb;
 	}
+	
       }
+  }
 }
 
 void recovery_bk_fm(uint32_t *src, uint32_t *dst, uint32_t size)
@@ -141,39 +236,86 @@ void recovery_bk_fm(uint32_t *src, uint32_t *dst, uint32_t size)
 
 uint32_t blk_cmp_fm(
 		   uint32_t *src, uint32_t src_w, uint32_t src_h, uint32_t src_str,
-		   uint32_t *dst, uint32_t dst_w, uint32_t dst_h, uint32_t dst_str, 
-		   uint32_t dst_tile_en
+		   uint32_t *dst, uint32_t dst_str, 
+		   uint32_t dst_tile_en , uint32_t fmt , uint32_t apos , uint32_t rgbm
 		   )
 {
   uint32_t x;
   uint32_t y;
-  for ( y = 0; y < dst_h; y++)
-    for ( x = 0; x < dst_w; x++)
-      {
-	if ( dst_tile_en == 1 ){
-	  uint32_t new_x;
-	  uint32_t new_y;
-	  new_x = (x/16)*256 + (x%16) + (y%16)*16;
-	  new_y = y/16;
-	  if ( dst[new_x+new_y*(dst_str/(sizeof(uint32_t)))] != src[x+y*(src_str/(sizeof(uint32_t)))] )
-	    {
-	    x2d_err_printf("+++++++++++++++++FM CMP ERROR: [0x%x,0x%x]   ref-src++++\n", x, y);
-	    x2d_err_printf("ref:0x%x-0x%x, src:0x%x\n", (uint32_t)&src[x+y*(src_str/(sizeof(uint32_t)))], src[x+y*(src_str/(sizeof(uint32_t)))],
-			   dst[new_x+new_y*(dst_str/(sizeof(uint32_t)))]
-			   );
-	    return 1;
-	  }	  
-	}else {
-	  if ( dst[x+y*(dst_str/(sizeof(uint32_t)))] != src[x+y*(src_str/(sizeof(uint32_t)))] )
-	    {
-	    x2d_err_printf("+++++++++++++++++FM CMP ERROR: [0x%x,0x%x]   ref-src++++\n", x, y);
-	    x2d_err_printf("ref:0x%x-0x%x, src:0x%x\n", (uint32_t)&src[x+y*(src_str/(sizeof(uint32_t)))], src[x+y*(src_str/(sizeof(uint32_t)))],
-			   dst[x+y*(dst_str/(sizeof(uint32_t)))]
-			   );
+
+  uint16_t *hf_src = (uint16_t *)src;
+  uint16_t *hf_dst = (uint16_t *)dst;
+
+  uint32_t msk_src;
+  uint32_t msk_dst;
+
+  uint32_t msk_alpha = apos ? 0xFFFFFF00 : 0x00FFFFFF; // alpha mask when XRGB888
+  
+  if( fmt == DST_ARGB || fmt == DST_XRGB888 ){
+    for ( y = 0; y < src_h; y++)
+      for ( x = 0; x < src_w; x++)
+	{
+	  if ( dst_tile_en ){
+	    uint32_t new_x;
+	    uint32_t new_y;
+	    new_x = (x/16)*256 + (x%16) + (y%16)*16;
+	    new_y = y/16;
+
+	    msk_src = src[new_x+new_y*(src_str/(sizeof(uint32_t)))] & msk_alpha;
+	    msk_dst = dst[new_x+new_y*(dst_str/(sizeof(uint32_t)))] & msk_alpha;
+
+	    if ( msk_dst != msk_src ){
+	      x2d_err_printf(" > +FM CMP ERROR: [%x,%x] , @ WH ( %x, %x ) \n", x, y , src_w , src_h);
+	      x2d_err_printf(" > ref:0x%08x-0x%08x, hw:0x%08x-0x%08x  @FMT %s rgbm %x apos %x @tile_en\n", 
+			     (uint32_t)&src[new_x+new_y*(src_str/(sizeof(uint32_t)))], msk_src ,
+			     (uint32_t)mem_get_phy((uint32_t) &dst[new_x+new_y*(dst_str/(sizeof(uint32_t)))]), msk_dst , 
+			     ( (fmt == DST_ARGB) ? "ARGB" :
+			       (fmt == DST_XRGB888) ? "XRGB" :
+			       (fmt == DST_RGB555) ? "RGB555" :
+			       (fmt == DST_RGB565) ? "RGB565" : "Unknown" ),
+			     rgbm , apos );
+	      return 1;
+	    }	  
+	  }else {
+	    msk_src = src[x+y*(src_str/(sizeof(uint32_t)))] & msk_alpha;
+	    msk_dst = dst[x+y*(dst_str/(sizeof(uint32_t)))] & msk_alpha;
+
+	    if ( msk_dst != msk_src ){
+	      x2d_err_printf(" > +FM CMP ERROR: [%x,%x] , @ WH ( %x, %x ) \n", x, y , src_w , src_h);
+	      x2d_err_printf(" > ref:0x%08x-0x%08x, hw:0x%08x-0x%08x  @FMT %s rgbm %x apos %x\n", 
+			     (uint32_t)&src[x+y*(src_str/(sizeof(uint32_t)))], src[x+y*(src_str/(sizeof(uint32_t)))],
+			     (uint32_t)mem_get_phy((uint32_t) & dst[x+y*(dst_str/(sizeof(uint32_t)))]) , 
+			     dst[x+y*(dst_str/(sizeof(uint32_t)))],
+			     ( (fmt == DST_ARGB) ? "ARGB" :
+			       (fmt == DST_XRGB888) ? "XRGB" :
+			       (fmt == DST_RGB555) ? "RGB555" :
+			       (fmt == DST_RGB565) ? "RGB565" : "Unknown" ),
+			     rgbm , apos );
+	      return 1;
+	    }
+	  }
+	}
+  }else {
+    
+    for ( y = 0; y < src_h; y++)
+      for ( x = 0; x < src_w; x++)
+	{
+	  if ( hf_dst[x+y*(dst_str/(sizeof(uint16_t)))] != hf_src[x+y*(src_str/(sizeof(uint16_t)))] ){
+	    x2d_err_printf(" > +FM CMP ERROR: [%x,%x] , @ WH ( %x, %x ) \n", x, y , src_w , src_h);
+	    x2d_err_printf(" > ref:0x%08x-0x%04x, hw:0x%08x-0x%04x  @FMT %s rgbm %x apos %x\n", 
+			   (uint32_t)&hf_src[x+y*(src_str/(sizeof(uint16_t)))], hf_src[x+y*(src_str/(sizeof(uint16_t)))],
+			   (uint32_t)mem_get_phy((uint32_t) & hf_dst[x+y*(dst_str/(sizeof(uint16_t)))]), 
+			   hf_dst[x+y*(dst_str/(sizeof(uint16_t)))], 
+			   ( (fmt == DST_ARGB) ? "ARGB" :
+			     (fmt == DST_XRGB888) ? "XRGB" :
+			     (fmt == DST_RGB555) ? "RGB555" :
+			     (fmt == DST_RGB565) ? "RGB565" : "Unknown" ),
+			   rgbm , apos );
 	    return 1;
 	  }
 	}
-      }
+
+  }
   return 0;
 }
 
@@ -204,7 +346,8 @@ uint32_t resize_pix_unit( uint32_t src[4],
 			  uint32_t coef[4]
 			  )
 {
-  //uint32_t yrsz_result[4];
+	//uint32_t i;
+	//uint32_t yrsz_result[4];
   int32_t tmp = 0;
 
   if ( src[0] == src[1] && src[2] == src[3] && src[1] == src[2] )
@@ -244,7 +387,7 @@ void fm_resize ( uint32_t *src, uint32_t src_w, uint32_t src_h, uint32_t src_str
       ycoef[0] = get_coef( ycoef_pos0 );
       ycoef[1] = get_coef( ycoef_pos1 );
       ycoef[2] = get_coef( ycoef_pos2 );
-      ycoef[3] = get_coef( ycoef_pos3 );     
+      ycoef[3] = get_coef( ycoef_pos3 );
 
       for( rxpos = 0; rxpos <dst_w; rxpos++)
 	{
@@ -264,7 +407,6 @@ void fm_resize ( uint32_t *src, uint32_t src_w, uint32_t src_h, uint32_t src_str
 	  xcoef[2] = get_coef( xcoef_pos2 );
 
 	  xcoef[3] = get_coef( xcoef_pos3 );
-
 
 	  /*------------------ fetch 4x4 src pix ------------------------------*/	  
 	  uint32_t a_pos[4];
@@ -430,12 +572,12 @@ uint32_t x2d_osd_unit(uint32_t src_argb, uint32_t src_prem,
   uint32_t src_r = (src_argb >> 16) & 0xff;
   uint32_t src_g = (src_argb >> 8) & 0xff;
   uint32_t src_b = (src_argb >> 0) & 0xff;
-  uint32_t fs = 0;
+  uint32_t fs ;
   uint32_t dst_a = (dst_argb >> 24) & 0xff;
   uint32_t dst_r = (dst_argb >> 16) & 0xff;
   uint32_t dst_g = (dst_argb >> 8) & 0xff;
   uint32_t dst_b = (dst_argb >> 0) & 0xff;
-  uint32_t fd = 0 ;
+  uint32_t fd ;
   if ( disp == 1 )
     {
       x2d_err_printf("+++ [A, R, G, B]: src-0x%x,0x%x,0x%x,0x%x\n", src_a, src_r, src_g, src_b);
@@ -688,12 +830,10 @@ uint32_t x2d_osd_5layer_pix(uint32_t lb_argb, uint32_t lb_prem,
 			    osd_mode_l0,
 			    dips
                            );
-
-  return L0123_result;
 }
 
 
-void x2d_osd_5layer(
+uint32_t x2d_osd_5layer(
 			uint32_t ilayb_en,
 			uint32_t ilayb_pm,
 			uint32_t ilayb_w,
@@ -775,10 +915,6 @@ void x2d_osd_5layer(
 	uint32_t l2_argb= 0;
 	uint32_t l3_argb= 0;  
 	uint32_t dips = 0;
-#ifdef X2D_DEBUG_M
-	if ( xpos == 0 && (ypos == 0x288 || ypos == 0x289) )
-	  dips = 1;
-#endif
 
 	/*==========================lay 0 ===================*/
 	if ( xpos >= ilay0_xoft &&
@@ -787,7 +923,7 @@ void x2d_osd_5layer(
 	     ypos < (ilay0_yoft + ilay0_h) && ilay0_en
 	     ){
 	  uint32_t *ptr = ilay0_addr + (xpos-ilay0_xoft) + (ypos-ilay0_yoft)*(ilay0_str/sizeof(uint32_t));
-	  l0_argb = *ptr;
+	  l0_argb = *ptr;	  
 	  if ( ilay0_mask_en )
 	    l0_argb = ilay0_bak_argb;
 	  else
@@ -857,8 +993,6 @@ void x2d_osd_5layer(
 	{
 	  uint32_t *ptr = ilayb_addr + xpos + ypos*(ilayb_str/sizeof(uint32_t));
 	  lb_argb = *ptr;
-	  if ( dips == 1)
-	    printf("lay b: x-0x%x, y-0x%x, pix:0x%x\n", xpos, ypos, lb_argb);
 	  if ( ilayb_mask_en )
 	    lb_argb = ilayb_bak_argb;
 	  else
@@ -896,16 +1030,12 @@ void fm_rotate(
 	      uint32_t rota_m, uint32_t hmirr, uint32_t vmirr
               )
 {
-  int x = 0;
-  int y = 0;
-  int src_xpos = 0;
-  int src_ypos = 0;
-  int dst_xpos = 0;
-  int dst_ypos = 0;
-  /* printk(" > rota fm now rota-%d\n", rota_m); */
-  /* printk(" > src: w-%d, h-%d, str-%d\n", src_w, src_h, src_str); */
-  /* printk(" > dst: w-%d, h-%d, str-%d\n", dst_w, dst_h, dst_str); */
-  /* printk(" dst: %p, src: %p\n", dst, src); */
+  int x;
+  int y;
+  int src_xpos;
+  int src_ypos;
+  int dst_xpos;
+  int dst_ypos;
   for ( y = 0; y < dst_h; y++){
     for ( x = 0; x < dst_w; x++){
       dst_xpos = x;
@@ -939,8 +1069,6 @@ void fm_rotate(
 	{
 	  dst_ypos = (dst_h - 1) - dst_ypos;
 	}
-      /* printk("--dst: [x,y]-[%d, %d]\n", dst_xpos, dst_ypos); */
-      /* printk("--src: [x,y]-[%d, %d]\n", src_xpos, src_ypos); */
       dst[dst_xpos+dst_ypos*(dst_str/(sizeof(uint32_t)))] 
 	= src[src_xpos + src_ypos * (src_str/(sizeof(uint32_t)))];
     }
@@ -948,287 +1076,344 @@ void fm_rotate(
 
 }
 
-void init_pix(
-	      uint32_t *dst, uint32_t dst_w, uint32_t dst_h, uint32_t dst_str,
-	      uint32_t bk_argb, uint32_t smod, uint32_t msk_en,
-	      uint32_t raw_en, uint32_t *src_y, uint32_t *src_u, uint32_t *src_v ,uint32_t y_str,
-	      uint32_t rgbm, uint32_t apos
-              )
+#define XCHG(a, b) { int c = a; a=b ; b=c; }
+
+#define rgbtoy(b, g, r, y) y=(uint8_t)(((int)257*r +(int)504*g +(int)98*b)/1000 + 16)
+#define rgbtoyuv(b, g, r, y, u, v) \
+rgbtoy(b, g, r, y); \
+u=(uint8_t)(((int)-148*r -(int)291*g +(int)439*b)/1000 + 128); \
+v=(uint8_t)(((int)439*r -(int)368*g -(int)71*b)/1000 + 128)
+
+void Rgb2Yuv ( uint32_t srcWidth,uint32_t srcHeight,uint8_t * rgb,uint8_t * yuv ) 
+{
+     const uint32_t planeSize = srcWidth*srcHeight;
+     const uint32_t halfWidth = srcWidth >> 1;
+     
+     uint8_t * yplane  = yuv;
+     uint8_t * uplane = yuv + planeSize;
+     uint8_t * vplane = yuv + planeSize + (planeSize >> 2);
+     uint8_t * rgbIndex; 
+     
+     uint8_t * yline;
+     uint8_t * uline;
+     uint8_t * vline;
+     uint32_t x,y;
+     for (y = 0; y < srcHeight; y++) 
+     {
+         yline = yplane + (y * srcWidth);
+         uline = uplane + ((y >> 1) * halfWidth);
+         vline = vplane + ((y >> 1) * halfWidth); 
+	 rgbIndex = rgb + (srcWidth*y*4);
+     
+         for (x = 0; x < srcWidth; x+=2) 
+         { 
+              rgbtoy(rgbIndex[0], rgbIndex[1], rgbIndex[2],*yline); 
+              
+              rgbIndex += 4;
+              yline++; 
+              
+              rgbtoyuv(rgbIndex[0], rgbIndex[1], rgbIndex[2],*yline, *uline, *vline);
+              
+              rgbIndex += 4;
+              yline++;
+              uline++;
+              vline++;
+         }
+     }
+} 
+
+void init_layer_pix(uint32_t *pic_rgb, 
+		    uint32_t *raw_rgb, uint32_t raw_w, uint32_t raw_h, uint32_t raw_str,
+		    uint8_t *src_y, uint8_t *src_u, uint8_t *src_v ,uint32_t y_str,
+		    uint32_t smod, uint32_t rgbm, uint32_t apos
+		    )
 {
   int x;
   int y;
   uint16_t *hf_ptr;
-  uint8_t *df_ptr;
 
+  const unsigned planeSize = raw_w * raw_h;
+  uint8_t *raw_yuv = mem_alloc(TEST_SIZE);//malloc( planeSize * 3/2 );
+  Rgb2Yuv ( raw_w , raw_h, pic_rgb, raw_yuv);
+
+  uint8_t * yplane = raw_yuv;
+  uint8_t * uplane = raw_yuv + planeSize;
+  uint8_t * vplane = raw_yuv + planeSize + (planeSize >> 2);
+
+  uint32_t *ptr;
+  //uint32_t src_pos;
   uint32_t src_pix;
-  for ( y = 0; y< dst_h; y++){
-    for ( x = 0 ; x < dst_w; x++){
-      src_pix = random();
-      
+  for ( y = 0; y< raw_h; y++){
+    for ( x = 0 ; x < raw_w; x++){
+      src_pix = pic_rgb[ x + y*raw_w ];
+
       if ( smod == SRC_RGB555 ){
 	  src_pix = (src_pix & 0x00F8F8F8) | 0xFF000000;
       }else if ( smod == SRC_RGB565 ){
 	  src_pix = (src_pix & 0x00F8FCF8) | 0xFF000000;
-      }else if ( smod != 0 ){
-	if ( ((x%2)==0) && (y%2==0) ){
-	  src_pix = src_pix | 0xFF000000;
-	}
-	else{
-	  src_pix = ((src_pix | 0xFF000000) & 0xFFFF0000) | 
-	    ((dst[((int)(x/2))*2 + ((int)(y/2))*2*(dst_str/sizeof(uint32_t))]) & 
-	     0x0000FFFF
-	     );
-	}
+      }else if ( smod != SRC_ARGB ){
+	src_pix = ( 0xFF000000 | 
+		    (yplane[ x + y*raw_w ] << 16) | 
+		    (uplane[ ((int)(x/2)) + ((int)(y/2))*raw_w/2 ]<< 8) |
+		    (vplane[ ((int)(x/2)) + ((int)(y/2))*raw_w/2 ]) );
+
       }
       
-      if(raw_en){
-	if(smod == SRC_ARGB){
-	  uint32_t tmpa = (src_pix >> 24)&0xFF;
-	  uint32_t tmpr = (src_pix >> 16)&0xFF;
-	  uint32_t tmpg = (src_pix >> 8)&0xFF;
-	  uint32_t tmpb = (src_pix >> 0)&0xFF;
-	  uint32_t new_rgb = 0;
-	  switch ( rgbm ){
-	  case SRC_FMT_RGB: new_rgb = (tmpr << 16) | (tmpg << 8) | (tmpb << 0); break;
-	  case SRC_FMT_BGR: new_rgb = (tmpb << 16) | (tmpg << 8) | (tmpr << 0); break;
-	  case SRC_FMT_RBG: new_rgb = (tmpr << 16) | (tmpb << 8) | (tmpg << 0); break;
-	  case SRC_FMT_GBR: new_rgb = (tmpg << 16) | (tmpb << 8) | (tmpr << 0); break;
-	  case SRC_FMT_GRB: new_rgb = (tmpg << 16) | (tmpr << 8) | (tmpb << 0); break;
-	  case SRC_FMT_BRG: new_rgb = (tmpb << 16) | (tmpr << 8) | (tmpg << 0); break;
-	  }
-	  uint32_t new_argb;
-	  if ( apos == 0 )
-	    new_argb = (new_rgb<<8) | tmpa;
-	  else
-	    new_argb = (new_rgb) | (tmpa << 24);
-
-	  src_y[x + y * (y_str/sizeof(uint32_t))] = new_argb;//src_pix;
-/* 	  if ( x==0 && y== 0) */
-/* 	  printf("new_argb:%x,", new_argb); */
-	}else if(smod == SRC_RGB555){
-	  uint32_t tmpb = ( (src_pix & 0xF8) >>3) & 0x1F;
-	  uint32_t tmpg = ( (src_pix & 0xF800) >>11) & 0x1F;
-	  uint32_t tmpr = ( (src_pix & 0xF80000) >>19) & 0x1F;
-	  //uint32_t new_pix = tmpb | (tmpg << 5) | ( tmpr << 10 );
-	  hf_ptr = (uint16_t *)src_y;
-	  uint32_t new_rgb = 0;
-	  switch ( rgbm ){
-	  case SRC_FMT_RGB: new_rgb = (tmpr << 10) | (tmpg << 5) | (tmpb << 0); break;
-	  case SRC_FMT_BGR: new_rgb = (tmpb << 10) | (tmpg << 5) | (tmpr << 0); break;
-	  case SRC_FMT_RBG: new_rgb = (tmpr << 10) | (tmpb << 5) | (tmpg << 0); break;
-	  case SRC_FMT_GBR: new_rgb = (tmpg << 10) | (tmpb << 5) | (tmpr << 0); break;
-	  case SRC_FMT_GRB: new_rgb = (tmpg << 10) | (tmpr << 5) | (tmpb << 0); break;
-	  case SRC_FMT_BRG: new_rgb = (tmpb << 10) | (tmpr << 5) | (tmpg << 0); break;
-	  }
-	  hf_ptr[x + y * (y_str/sizeof(uint16_t))] = new_rgb;
-	  
-	}else if(smod == SRC_RGB565){
-	  uint32_t tmpb = ( (src_pix & 0xF8) >>3) & 0x1F;
-	  uint32_t tmpg = ( (src_pix & 0xFC00) >>10) & 0x3F;
-	  uint32_t tmpr = ( (src_pix & 0xF80000) >>19) & 0x1F;
-	  //uint32_t new_pix = tmpa | (tmpb << 5) | ( tmpc << 11 );
-	  uint32_t new_rgb = 0;
-	  switch ( rgbm ){
-	  case SRC_FMT_RGB: new_rgb = (tmpr << 11) | (tmpg << 5) | (tmpb << 0); break;
-	  case SRC_FMT_BGR: new_rgb = (tmpb << 11) | (tmpg << 5) | (tmpr << 0); break;
-	  case SRC_FMT_RBG: new_rgb = (tmpr << 11) | (tmpb << 6) | (tmpg << 0); break;
-	  case SRC_FMT_GBR: new_rgb = (tmpg << 10) | (tmpb << 5) | (tmpr << 0); break;
-	  case SRC_FMT_GRB: new_rgb = (tmpg << 10) | (tmpr << 5) | (tmpb << 0); break;
-	  case SRC_FMT_BRG: new_rgb = (tmpb << 11) | (tmpr << 6) | (tmpg << 0); break;
-	  }
-	  hf_ptr = (uint16_t *)src_y;
-	  
-	  hf_ptr[x + y * (y_str/sizeof(uint16_t))] = new_rgb;//new_pix;
-
-	}else if(smod == SRC_YUV_SEP){
-	  uint32_t tmpa = (src_pix & 0xFF) & 0xFF;
-	  uint32_t tmpb = ( (src_pix & 0xFF00) >>8) & 0xFF;
-	  uint32_t tmpc = ( (src_pix & 0xFF0000) >>16) & 0xFF;
-	  df_ptr = (uint8_t *)src_y;
-	  df_ptr[x + y * (y_str/sizeof(uint8_t))] = tmpc;
-
-	  df_ptr = (uint8_t *)src_u;
-	  df_ptr[x/2 + y/2 * (y_str/2/sizeof(uint8_t))] = tmpb;
-
-	  df_ptr = (uint8_t *)src_v;
-	  df_ptr[x/2 + y/2 * (y_str/2/sizeof(uint8_t))] = tmpa;
-	  
-	  
-	}else if(smod == SRC_YUV_TILE){
-	  uint32_t tmpa = (src_pix & 0xFF) & 0xFF;
-	  uint32_t tmpb = ( (src_pix & 0xFF00) >>8) & 0xFF;
-	  uint32_t tmpc = ( (src_pix & 0xFF0000) >>16) & 0xFF;
-
-	  uint32_t blk_x = x/16;
-	  uint32_t blk_y = y/16;
-
-	  uint32_t ofst_x = x%16;
-	  uint32_t ofst_y = y%16;
-	  //printf("blk (%x ,%x) (%x ,%x) : pix %x %x %x \n",blk_x,blk_y ,ofst_x,ofst_y , tmpc , tmpb, tmpa);
-
-	  df_ptr = (uint8_t *)src_y;
-	  df_ptr[blk_x*256 + ofst_x + ofst_y*16 + blk_y*y_str] = tmpc;
-
-	  df_ptr = (uint8_t *)src_u;
-	  df_ptr[blk_x*128 + (ofst_x/2) + (ofst_y/2)*16 + blk_y*y_str/2] = tmpb;
-	  df_ptr[blk_x*128 + (ofst_x/2) + 8 + (ofst_y/2)*16 + blk_y*y_str/2] = tmpa;
-
-	}else if(smod == SRC_YUV_NV12){
-	  uint32_t tmpa = (src_pix & 0xFF) & 0xFF;
-	  uint32_t tmpb = ( (src_pix & 0xFF00) >>8) & 0xFF;
-	  uint32_t tmpc = ( (src_pix & 0xFF0000) >>16) & 0xFF;
-	  df_ptr = (uint8_t *)src_y;
-	  df_ptr[x + y * (y_str/sizeof(uint8_t))] = tmpc;
-
-	  uint32_t new_pix = tmpb | (tmpa << 8);
-	  hf_ptr = (uint16_t *)src_u;
-	  hf_ptr[x/2 + y/2 * (y_str/sizeof(uint16_t))] = new_pix;
-
-	}else if(smod == SRC_YUV_NV21){
-	  uint32_t tmpa = (src_pix & 0xFF) & 0xFF;
-	  uint32_t tmpb = ( (src_pix & 0xFF00) >>8) & 0xFF;
-	  uint32_t tmpc = ( (src_pix & 0xFF0000) >>16) & 0xFF;
-	  df_ptr = (uint8_t *)src_y;
-	  df_ptr[x + y * (y_str/sizeof(uint8_t))] = tmpc;
-
-	  uint32_t new_pix = tmpa | (tmpb << 8);
-	  hf_ptr = (uint16_t *)src_u;
-	  hf_ptr[x/2 + y/2 * (y_str/sizeof(uint16_t))] = new_pix;
-
+      raw_rgb[ x + y*raw_str/sizeof(uint32_t) ] = src_pix;
+      
+      if(smod == SRC_ARGB){
+	uint32_t tmpa = (src_pix >> 24)&0xFF;
+	uint32_t tmpr = (src_pix >> 16)&0xFF;
+	uint32_t tmpg = (src_pix >> 8)&0xFF;
+	uint32_t tmpb = (src_pix >> 0)&0xFF;
+	uint32_t new_rgb = 0;
+	switch ( rgbm ){
+	case SRC_FMT_RGB: new_rgb = (tmpr << 16) | (tmpg << 8) | (tmpb << 0); break;
+	case SRC_FMT_BGR: new_rgb = (tmpb << 16) | (tmpg << 8) | (tmpr << 0); break;
+	case SRC_FMT_RBG: new_rgb = (tmpr << 16) | (tmpb << 8) | (tmpg << 0); break;
+	case SRC_FMT_GBR: new_rgb = (tmpg << 16) | (tmpb << 8) | (tmpr << 0); break;
+	case SRC_FMT_GRB: new_rgb = (tmpg << 16) | (tmpr << 8) | (tmpb << 0); break;
+	case SRC_FMT_BRG: new_rgb = (tmpb << 16) | (tmpr << 8) | (tmpg << 0); break;
 	}
+	uint32_t new_argb;
+	if ( apos )
+	  new_argb = (new_rgb<<8) | tmpa;
+	else
+	  new_argb = (new_rgb) | (tmpa << 24);
+
+	ptr = src_y;
+	ptr[x + y * (y_str/sizeof(uint32_t))] = new_argb;//src_pix;
+
+      }else if(smod == SRC_RGB555){
+	uint32_t tmpb = ( (src_pix & 0xF8) >>3) & 0x1F;
+	uint32_t tmpg = ( (src_pix & 0xF800) >>11) & 0x1F;
+	uint32_t tmpr = ( (src_pix & 0xF80000) >>19) & 0x1F;
+	//uint32_t new_pix = tmpb | (tmpg << 5) | ( tmpr << 10 );
+	hf_ptr = src_y;
+	uint32_t new_rgb = 0;
+	switch ( rgbm ){
+	case SRC_FMT_RGB: new_rgb = (tmpr << 10) | (tmpg << 5) | (tmpb << 0); break;
+	case SRC_FMT_BGR: new_rgb = (tmpb << 10) | (tmpg << 5) | (tmpr << 0); break;
+	case SRC_FMT_RBG: new_rgb = (tmpr << 10) | (tmpb << 5) | (tmpg << 0); break;
+	case SRC_FMT_GBR: new_rgb = (tmpg << 10) | (tmpb << 5) | (tmpr << 0); break;
+	case SRC_FMT_GRB: new_rgb = (tmpg << 10) | (tmpr << 5) | (tmpb << 0); break;
+	case SRC_FMT_BRG: new_rgb = (tmpb << 10) | (tmpr << 5) | (tmpg << 0); break;
+	}
+	hf_ptr[x + y * (y_str/sizeof(uint16_t))] = new_rgb;
+	  
+      }else if(smod == SRC_RGB565){
+	uint32_t tmpb = ( (src_pix & 0xF8) >>3) & 0x1F;
+	uint32_t tmpg = ( (src_pix & 0xFC00) >>10) & 0x3F;
+	uint32_t tmpr = ( (src_pix & 0xF80000) >>19) & 0x1F;
+	//uint32_t new_pix = tmpa | (tmpb << 5) | ( tmpc << 11 );
+	uint32_t new_rgb = 0;
+	switch ( rgbm ){
+	case SRC_FMT_RGB: new_rgb = (tmpr << 11) | (tmpg << 5) | (tmpb << 0); break;
+	case SRC_FMT_BGR: new_rgb = (tmpb << 11) | (tmpg << 5) | (tmpr << 0); break;
+	case SRC_FMT_RBG: new_rgb = (tmpr << 11) | (tmpb << 6) | (tmpg << 0); break;
+	case SRC_FMT_GBR: new_rgb = (tmpg << 10) | (tmpb << 5) | (tmpr << 0); break;
+	case SRC_FMT_GRB: new_rgb = (tmpg << 10) | (tmpr << 5) | (tmpb << 0); break;
+	case SRC_FMT_BRG: new_rgb = (tmpb << 11) | (tmpr << 6) | (tmpg << 0); break;
+	}
+	hf_ptr = src_y;
+	  
+	hf_ptr[x + y * (y_str/sizeof(uint16_t))] = new_rgb;//new_pix;
+
+      }else if(smod == SRC_YUV_SEP){
+	src_y[x + y * (y_str/sizeof(uint8_t))] = yplane[ x + y*raw_w ];
+
+	if( x%2 == 0 && y%2 == 0 ){
+	  src_u[x/2 + y/2 * (y_str/2/sizeof(uint8_t))] = uplane[ x/2 + y/2*raw_w/2 ];
+	  src_v[x/2 + y/2 * (y_str/2/sizeof(uint8_t))] = vplane[ x/2 + y/2*raw_w/2 ];
+	}
+
+      }else if(smod == SRC_YUV_TILE){
+	uint32_t blk_x = x/16;
+	uint32_t blk_y = y/16;
+
+	uint32_t ofst_x = x%16;
+	uint32_t ofst_y = y%16;
+
+	src_y[blk_x*256 + ofst_x + ofst_y*16 + blk_y*y_str] = yplane[ x + y*raw_w ];
+
+	if( x%2 == 0 && y%2 == 0 ){
+	  src_u[blk_x*128 + (ofst_x/2) + (ofst_y/2)*16 + blk_y*y_str/2] = uplane[ x/2 + y/2*raw_w/2 ];
+	  src_u[blk_x*128 + (ofst_x/2) + 8 + (ofst_y/2)*16 + blk_y*y_str/2] = vplane[ x/2 + y/2*raw_w/2 ];
+	}
+
+      }else if(smod == SRC_YUV_NV12){
+	src_y[x + y * (y_str/sizeof(uint8_t))] = yplane[ x + y*raw_w ];
+	if( x%2 == 0 && y%2 == 0 ){
+	  src_u[x + y/2 * (y_str/sizeof(uint8_t))] = uplane[ x/2 + y/2*raw_w/2 ];
+	  src_u[x+1 + y/2 * (y_str/sizeof(uint8_t))] = vplane[ x/2 + y/2*raw_w/2 ];
+	}
+      }else if(smod == SRC_YUV_NV21){
+	src_y[x + y * (y_str/sizeof(uint8_t))] = yplane[ x + y*raw_w ];
+	if( x%2 == 0 && y%2 == 0 ){
+	  src_u[x + y/2 * (y_str/sizeof(uint8_t))] = vplane[ x/2 + y/2*raw_w/2 ];
+	  src_u[x+1 + y/2 * (y_str/sizeof(uint8_t))] = uplane[ x/2 + y/2*raw_w/2 ];
+	}
+
+      }
+    }
+  }
+
+  mem_free( raw_yuv);
+
+}
+
+
+void init_dst_pix(uint32_t *pic_raw,
+		  uint32_t *dst, uint32_t dst_w, uint32_t dst_h, uint32_t dst_str,
+		  uint32_t *dst_raw_hw, uint32_t raw_str_hw, // Hardware
+		  uint32_t smod, uint32_t rgbm, uint32_t apos , uint32_t tile_en
+		  )
+{
+  int x;
+  int y;
+  uint16_t *hw_ptr = dst_raw_hw;
+  uint16_t *sw_ptr = dst;
+  
+  uint32_t y_str = raw_str_hw;//( (smod == DST_RGB555) ||(smod == DST_RGB565) ) ? (dst_str/2) : dst_str ;
+
+  uint32_t src_pix;
+  uint32_t new_rgb = 0;
+  for ( y = 0; y< dst_h; y++){
+    for ( x = 0 ; x < dst_w; x++){
+      src_pix = pic_raw[x + y*dst_w];
+      
+      if(smod == DST_RGB555){
+	dst[x + y * (dst_str/sizeof(uint32_t))] = (src_pix & 0x00F8F8F8) | 0xFF000000;
+
+	uint32_t tmpb = ( (src_pix & 0xF8) >>3) & 0x1F;
+	uint32_t tmpg = ( (src_pix & 0xF800) >>11) & 0x1F;
+	uint32_t tmpr = ( (src_pix & 0xF80000) >>19) & 0x1F;
+	  
+	switch ( rgbm ){
+	case SRC_FMT_RGB: new_rgb = (tmpr << 10) | (tmpg << 5) | (tmpb << 0); break;
+	case SRC_FMT_BGR: new_rgb = (tmpb << 10) | (tmpg << 5) | (tmpr << 0); break;
+	case SRC_FMT_RBG: new_rgb = (tmpr << 10) | (tmpb << 5) | (tmpg << 0); break;
+	case SRC_FMT_GBR: new_rgb = (tmpg << 10) | (tmpb << 5) | (tmpr << 0); break;
+	case SRC_FMT_GRB: new_rgb = (tmpg << 10) | (tmpr << 5) | (tmpb << 0); break;
+	case SRC_FMT_BRG: new_rgb = (tmpb << 10) | (tmpr << 5) | (tmpg << 0); break;
+	}
+	hw_ptr[x + y * (y_str/sizeof(uint16_t))] = new_rgb;
+	  
+      }else if(smod == DST_RGB565){
+	dst[x + y * (dst_str/sizeof(uint32_t))] = (src_pix & 0x00F8FCF8) | 0xFF000000;
+
+	uint32_t tmpb = ( (src_pix & 0xF8) >>3) & 0x1F;
+	uint32_t tmpg = ( (src_pix & 0xFC00) >>10) & 0x3F;
+	uint32_t tmpr = ( (src_pix & 0xF80000) >>19) & 0x1F;
+
+	switch ( rgbm ){
+	case SRC_FMT_RGB: new_rgb = (tmpr << 11) | (tmpg << 5) | (tmpb << 0); break;
+	case SRC_FMT_BGR: new_rgb = (tmpb << 11) | (tmpg << 5) | (tmpr << 0); break;
+	case SRC_FMT_RBG: new_rgb = (tmpr << 11) | (tmpb << 6) | (tmpg << 0); break;
+	case SRC_FMT_GBR: new_rgb = (tmpg << 10) | (tmpb << 5) | (tmpr << 0); break;
+	case SRC_FMT_GRB: new_rgb = (tmpg << 10) | (tmpr << 5) | (tmpb << 0); break;
+	case SRC_FMT_BRG: new_rgb = (tmpb << 11) | (tmpr << 6) | (tmpg << 0); break;
+	}
+	  
+	hw_ptr[x + y * (y_str/sizeof(uint16_t))] = new_rgb;
+
+      }else {
+	dst[x + y * (dst_str/sizeof(uint32_t))] = src_pix ;
+
+	uint32_t tmpa = (src_pix >> 24)&0xFF;
+	uint32_t tmpr = (src_pix >> 16)&0xFF;
+	uint32_t tmpg = (src_pix >> 8)&0xFF;
+	uint32_t tmpb = (src_pix >> 0)&0xFF;
+
+	switch ( rgbm ){
+	case SRC_FMT_RGB: new_rgb = (tmpr << 16) | (tmpg << 8) | (tmpb << 0); break;
+	case SRC_FMT_BGR: new_rgb = (tmpb << 16) | (tmpg << 8) | (tmpr << 0); break;
+	case SRC_FMT_RBG: new_rgb = (tmpr << 16) | (tmpb << 8) | (tmpg << 0); break;
+	case SRC_FMT_GBR: new_rgb = (tmpg << 16) | (tmpb << 8) | (tmpr << 0); break;
+	case SRC_FMT_GRB: new_rgb = (tmpg << 16) | (tmpr << 8) | (tmpb << 0); break;
+	case SRC_FMT_BRG: new_rgb = (tmpb << 16) | (tmpr << 8) | (tmpg << 0); break;
+	}
+	uint32_t new_argb;
+	if ( apos )
+	  new_argb = (new_rgb<<8) | tmpa;
+	else
+	  new_argb = (new_rgb) | (tmpa << 24);
+	
+	if(tile_en){
+	  uint32_t x_new;
+	  x_new = ((x/16)*256) + x%16 + (y%16)*16;
+	  uint32_t y_new;
+	  y_new = y/16;
+	  dst_raw_hw[x_new+y_new*(y_str/(sizeof(uint32_t)))] = new_argb;
+	}else {
+	  dst_raw_hw[x + y * (y_str/sizeof(uint32_t))] = new_argb;
+	}
+
       }
       
-      dst[x + y * (dst_str/sizeof(uint32_t))] = src_pix ;
     }
   }
 }
 
 
-
 void init_verc(x2d_tbench_verc_info_p verc_ptr)
 {
 
-  verc_ptr->lay_num = random()%5;
 #ifdef USER_CFG_OPT
   verc_ptr->lay_num = 4;
 #endif  
-  verc_ptr->lay_num = 4;
+  //verc_ptr->lay_num = 1;
+  uint32_t *background  = background_plan480x272;
+
+  uint32_t *layer_raw;
+
   uint32_t max_xpos = 0;
   uint32_t max_ypos = 0;  
   int i;
 
-  verc_ptr->cmd_tlb_en = random()%2;
-  verc_ptr->dst_tlb_en = random()%2;
-
   verc_ptr->cmd_tlb_en = 0;
   verc_ptr->dst_tlb_en = 0;
 
+  verc_ptr->ddr_bank_sel = random()%3 + 1;
+
+  //verc_ptr->shart_level =  random()%4 ;
+  verc_ptr->shart_level = SHARPL0;
+  //resize_level = verc_ptr->shart_level;
+  //lcverc_ptr->ddr_bank_sel = 1;
+  printk(" > Layer num: %d ,  Bank: %x K\n", verc_ptr->lay_num , verc_ptr->ddr_bank_sel);
+  
   for ( i = 0 ; i<verc_ptr->lay_num; i++)
     {
-      { int ii;
-      for ( ii = 0 ; ii<10000; ii++);
-      }
       verc_ptr->layx_ver[i].ilay_en = 1; //here not modify
-
-      verc_ptr->layx_ver[i].ilay_pm = random()%2;
-      verc_ptr->layx_ver[i].ilay_bak_argb = (uint32_t)(random());//|0xFF000000;
-      verc_ptr->layx_ver[i].ilay_galpha_en = random()%2;
-      verc_ptr->layx_ver[i].ilay_galpha  = random()%256;
-      verc_ptr->layx_ver[i].ilay_smode = random()%7;
-      verc_ptr->layx_ver[i].ilay_csc_mod = random()%2;
-      verc_ptr->layx_ver[i].ilay_osdm = random()%12;
-      verc_ptr->layx_ver[i].ilay_rgbm = random()%6;
-      verc_ptr->layx_ver[i].ilay_mask_en = random()%2;
-
-      verc_ptr->layx_ver[i].ilay_rota = random()%4;
-
-      verc_ptr->layx_ver[i].ilay_hmirror = random()%2;
-      verc_ptr->layx_ver[i].ilay_vmirror = random()%2;
-      verc_ptr->layx_ver[i].ilay_apos = random()%2;
-      verc_ptr->layx_ver[i].ilayer_tlb_en = random()%2;
-      verc_ptr->layx_ver[i].ilayer_tlb_en = 0;
-      if ( i == 0 )
-	verc_ptr->layx_ver[i].ilay_osdm = 0;
-
 
 
 #ifdef USER_CFG_OPT
       verc_ptr->layx_ver[i].ilay_pm = 0;
       verc_ptr->layx_ver[i].ilay_bak_argb = 0x72a20d7f;//|0xFF000000;
-      verc_ptr->layx_ver[i].ilay_galpha_en = 0;
-      verc_ptr->layx_ver[i].ilay_galpha  = 0xFF;
-      verc_ptr->layx_ver[i].ilay_bak_argb = 0 ;
+      verc_ptr->layx_ver[i].ilay_galpha_en = 1;
+      verc_ptr->layx_ver[i].ilay_galpha  = 0x80;
 
-      verc_ptr->layx_ver[i].ilay_smode = SRC_YUV_TILE;
+      //verc_ptr->layx_ver[i].ilay_smode = random()%7;
+      if(i == 0)
+	verc_ptr->layx_ver[i].ilay_smode = SRC_RGB565;
+      else if(i == 1)
+	verc_ptr->layx_ver[i].ilay_smode = SRC_ARGB;
+      else if(i == 2)
+	verc_ptr->layx_ver[i].ilay_smode = SRC_YUV_NV12;
+      else if(i == 3)
+	verc_ptr->layx_ver[i].ilay_smode = SRC_YUV_TILE;
 
       verc_ptr->layx_ver[i].ilay_csc_mod = 0;
       verc_ptr->layx_ver[i].ilay_osdm = 0;
       verc_ptr->layx_ver[i].ilay_rgbm = 0;
       verc_ptr->layx_ver[i].ilay_apos = 1;
-      verc_ptr->layx_ver[i].ilay_mask_en = 0;//random()%2;
+      verc_ptr->layx_ver[i].ilayer_tlb_en = 0;
+      verc_ptr->layx_ver[i].ilay_mask_en = 0;
 
-      if ( i == 2 )
-	{
-	  verc_ptr->layx_ver[i].ilay_osdm = X2D_OSD_MSRC_OVER;
-	}
 #endif   
+      if ( i == 0 )
+	verc_ptr->layx_ver[i].ilay_osdm = 0;
 
-      if ( verc_ptr->layx_ver[i].ilay_smode == SRC_RGB565 )
-	{
-	  verc_ptr->layx_ver[i].ilay_bak_argb =  verc_ptr->layx_ver[i].ilay_bak_argb & 0xFFF8FCF8;
-	}
-      else if ( verc_ptr->layx_ver[i].ilay_smode == SRC_RGB555 )
-	{
-	  verc_ptr->layx_ver[i].ilay_bak_argb =  verc_ptr->layx_ver[i].ilay_bak_argb & 0xFFF8F8F8;
-	}
-   
-      if ( verc_ptr->layx_ver[i].ilay_smode != 0 )
-	verc_ptr->layx_ver[i].ilay_galpha_en = 1;
-      
-      double ratio = 0;
-      do{
-	verc_ptr->layx_ver[i].ilay_src_width = random()%LAY_SRC_SMAXW + 4;
-	verc_ptr->layx_ver[i].ilay_dst_width = random()%LAY_SRC_DMAXW + 4;
-
-
-	if ( verc_ptr->layx_ver[i].ilay_smode == SRC_YUV_TILE ){
-	  verc_ptr->layx_ver[i].ilay_src_width = (verc_ptr->layx_ver[i].ilay_src_width + 15) & 0xFFFFFFF0;
-	}
-
-	ratio = (double)verc_ptr->layx_ver[i].ilay_dst_width/(double)verc_ptr->layx_ver[i].ilay_src_width;	
-      }while( ratio >= 128 || ratio <= 0.0078125);
-      ratio = 0;
-      do{
-	verc_ptr->layx_ver[i].ilay_src_height = random()%LAY_SRC_SMAXH+4;
-
-	if ( verc_ptr->layx_ver[i].ilay_smode == SRC_YUV_TILE )
-	  verc_ptr->layx_ver[i].ilay_src_height = ( verc_ptr->layx_ver[i].ilay_src_height + 15) & 0xFFFFFFF0;
-	
-	verc_ptr->layx_ver[i].ilay_dst_height = random()%LAY_SRC_DMAXH + 4;
-	ratio = (double)verc_ptr->layx_ver[i].ilay_dst_height/(double)verc_ptr->layx_ver[i].ilay_src_height;	
-      }while( ratio >= 128 || ratio <= 0.0078125);
-      
-      
-      //verc_ptr->layx_ver[i].ilay_dst_xoft = random()%LAY_SRC_DMAXW;
-      //verc_ptr->layx_ver[i].ilay_dst_yoft = random()%LAY_SRC_DMAXH;
-      verc_ptr->layx_ver[i].ilay_dst_xoft = random()%16;
-      verc_ptr->layx_ver[i].ilay_dst_yoft = random()%16;
-
-#ifdef USER_CFG_OPT
-      verc_ptr->layx_ver[i].ilay_src_width  = 32;//(random()%10+1)*16;
-      verc_ptr->layx_ver[i].ilay_src_height = 32;//(random()%10+1)*16;
-
-      verc_ptr->layx_ver[i].ilay_dst_width  = 32;//(random()%720 + 16);
-      verc_ptr->layx_ver[i].ilay_dst_height = 32;//(random()%720 + 16);
-      verc_ptr->layx_ver[i].ilay_dst_xoft = 0;//random()%16;
-      verc_ptr->layx_ver[i].ilay_dst_yoft = 0;//random()%16;
-
-      verc_ptr->layx_ver[i].ilay_rota = 0;
-      verc_ptr->layx_ver[i].ilay_hmirror = 0;
-      verc_ptr->layx_ver[i].ilay_vmirror = 0;      
-#endif
-
- 
       int format = verc_ptr->layx_ver[i].ilay_smode;
       int format_yuv_nv12 = (format == SRC_YUV_NV12);
       int format_yuv_nv21 = (format == SRC_YUV_NV21) ;
@@ -1241,73 +1426,114 @@ void init_verc(x2d_tbench_verc_info_p verc_ptr)
       int format_rgb555 = (format == SRC_RGB555);
       int format_rgb2 = format_rgb565 || format_rgb555;
       //int format_rgb = format_rgb888 || format_rgb2;
-      
-      int  fm_rot = verc_ptr->layx_ver[i].ilay_rota == ROTATE_90 || verc_ptr->layx_ver[i].ilay_rota == ROTATE_270;
-      //printf("fm_rot %x -- rot %x \n",fm_rot,verc_ptr->layx_ver[i].ilay_rota);
-      
-      uint32_t one_pix_unit = ( format_rgb888 ? 4 :
-				format_rgb2 ? 2 : 1);
-				
-      if ( format_yuv )
+
+
+      if ( format_rgb565 )
 	{
-	  verc_ptr->layx_ver[i].ilay_src_width = (verc_ptr->layx_ver[i].ilay_src_width + 1)&0xFFFFFFFE;
-	  verc_ptr->layx_ver[i].ilay_src_height = (verc_ptr->layx_ver[i].ilay_src_height + 1) & 0xFFFFFFFE;
+	  verc_ptr->layx_ver[i].ilay_bak_argb =  verc_ptr->layx_ver[i].ilay_bak_argb & 0xFFF8FCF8;
 	}
-
-      //uint32_t rnd_h_len = verc_ptr->layx_ver[i].ilay_src_height + verc_ptr->layx_ver[i].ilay_src_height%2;
-      uint32_t rnd_w_len = verc_ptr->layx_ver[i].ilay_src_width + verc_ptr->layx_ver[i].ilay_src_width%2;
-
-      verc_ptr->layx_ver[i].ilay_argb_str = rnd_w_len*(sizeof(uint32_t));
+      else if ( format_rgb555 )
+	{
+	  verc_ptr->layx_ver[i].ilay_bak_argb =  verc_ptr->layx_ver[i].ilay_bak_argb & 0xFFF8F8F8;
+	}
+   
+      if ( verc_ptr->layx_ver[i].ilay_smode != 0 )
+	verc_ptr->layx_ver[i].ilay_galpha_en = 1;
       
+#ifdef USER_CFG_OPT
+      verc_ptr->layx_ver[i].ilay_rota = random()%2;
+      verc_ptr->layx_ver[i].ilay_hmirror = 0;
+      verc_ptr->layx_ver[i].ilay_vmirror = 0;      
 
-      uint32_t w_len = rnd_w_len * one_pix_unit;
-      uint32_t fix_w_len = (w_len%16 == 0) ? w_len : ( (w_len/16 + 1)*16); // DW align
+#if 0
+      if( i == 0){
+	verc_ptr->layx_ver[i].ilay_src_width  = 480;
+	verc_ptr->layx_ver[i].ilay_src_height = 272;
+	layer_raw = verc_ptr->layx_ver[i].ilay_rota ? background_plan272x480 : background_plan480x272 ;
+      }else if( i == 1){
+	verc_ptr->layx_ver[i].ilay_src_width  = 640;
+	verc_ptr->layx_ver[i].ilay_src_height = 480;
+	layer_raw = verc_ptr->layx_ver[i].ilay_rota ? background_plan480x640 : background_plan640x480 ;
+      }else if( i == 2){
+	verc_ptr->layx_ver[i].ilay_src_width  = 640;
+	verc_ptr->layx_ver[i].ilay_src_height = 480;
+	layer_raw = verc_ptr->layx_ver[i].ilay_rota ? background_plan480x640 : background_plan640x480 ;
+      }else {
+	verc_ptr->layx_ver[i].ilay_src_width  = 640;
+	verc_ptr->layx_ver[i].ilay_src_height = 480;
+	layer_raw = verc_ptr->layx_ver[i].ilay_rota ? background_plan480x640 : background_plan640x480 ;
+      }
+#else
+	verc_ptr->layx_ver[i].ilay_src_width  = 480;
+	verc_ptr->layx_ver[i].ilay_src_height = 272;
+	layer_raw = verc_ptr->layx_ver[i].ilay_rota ? background_plan272x480 : background_plan480x272 ;
+#endif
+      if( verc_ptr->layx_ver[i].ilay_rota )
+	XCHG(verc_ptr->layx_ver[i].ilay_src_width , verc_ptr->layx_ver[i].ilay_src_height);
 
-      if(format_yuvt && (w_len%16 !=0) )
-	printf("Error : TileYUV width error : %x \n",w_len);
+      verc_ptr->layx_ver[i].ilay_dst_width  = 240;
+      verc_ptr->layx_ver[i].ilay_dst_height = 136;
 
-      verc_ptr->layx_ver[i].ilay_ystr = format_yuvt ? (w_len/16 * 256) : fix_w_len;
+      if( i == 0){
+	verc_ptr->layx_ver[i].ilay_dst_xoft = 0;
+	verc_ptr->layx_ver[i].ilay_dst_yoft = 0;
+      }else if( i == 1){
+	verc_ptr->layx_ver[i].ilay_dst_xoft = 0;
+	verc_ptr->layx_ver[i].ilay_dst_yoft = 136;
+      }else if( i == 2){
+	verc_ptr->layx_ver[i].ilay_dst_xoft = 240;
+	verc_ptr->layx_ver[i].ilay_dst_yoft = 136;
+      }else if( i == 3){
+	verc_ptr->layx_ver[i].ilay_dst_xoft = 120;
+	verc_ptr->layx_ver[i].ilay_dst_yoft = 68;
+      }
+
+      if ( format_yuvt ){ // TileYUV
+	verc_ptr->layx_ver[i].ilay_src_width = (verc_ptr->layx_ver[i].ilay_src_width + 15) & 0xFFFFFFF0;
+	verc_ptr->layx_ver[i].ilay_src_height = ( verc_ptr->layx_ver[i].ilay_src_height + 15) & 0xFFFFFFF0;
+      }else if ( format_yuv ){ // YUV
+	verc_ptr->layx_ver[i].ilay_src_width = verc_ptr->layx_ver[i].ilay_src_width + verc_ptr->layx_ver[i].ilay_src_width%2;
+	verc_ptr->layx_ver[i].ilay_src_height = verc_ptr->layx_ver[i].ilay_src_height + verc_ptr->layx_ver[i].ilay_src_height%2;
+      }
+
+#endif
+      printk(" > @ layer %x %s rot %x \n",i,(format_yuv_nv12 ? "NV12" :
+					     format_yuv_nv21 ? "NV21" :
+					     format_yuvs ? "YUV420S" :
+					     format_yuvt ? "YUV420T" :
+					     format_rgb888 ? "ARGB" :
+					     format_rgb565 ? "RGB565" :
+					     format_rgb555 ? "RGB555" : "UNKNOWN" ),
+	      verc_ptr->layx_ver[i].ilay_rota );
+
+      int  fm_rot = verc_ptr->layx_ver[i].ilay_rota == ROTATE_90 || verc_ptr->layx_ver[i].ilay_rota == ROTATE_270;
+      
+				
+      uint32_t blk_size;
+
+      if( format_yuvt ){
+	verc_ptr->layx_ver[i].ilay_y_str = (verc_ptr->layx_ver[i].ilay_src_width/16 * 256);
+	blk_size = verc_ptr->layx_ver[i].ilay_y_str * (verc_ptr->layx_ver[i].ilay_src_height/16);
+      }else if ( format_yuv ) {
+	verc_ptr->layx_ver[i].ilay_y_str = (verc_ptr->layx_ver[i].ilay_src_width + 15) & 0xFFFFFFF0; // DW x2 aligned
+	blk_size = verc_ptr->layx_ver[i].ilay_y_str * verc_ptr->layx_ver[i].ilay_src_height;
+      }else if(format_rgb2 ){
+	verc_ptr->layx_ver[i].ilay_y_str = ( (verc_ptr->layx_ver[i].ilay_src_width + 3) & 0xFFFFFFFC) * sizeof(uint16_t);
+	blk_size = verc_ptr->layx_ver[i].ilay_y_str * verc_ptr->layx_ver[i].ilay_src_height;
+      }else {
+	verc_ptr->layx_ver[i].ilay_y_str = ( verc_ptr->layx_ver[i].ilay_src_width + 
+					     verc_ptr->layx_ver[i].ilay_src_width%2) * sizeof(uint32_t);
+	blk_size = verc_ptr->layx_ver[i].ilay_y_str * verc_ptr->layx_ver[i].ilay_src_height;
+      }
+
+      verc_ptr->layx_ver[i].ilay_argb_str = (verc_ptr->layx_ver[i].ilay_src_width +
+					     verc_ptr->layx_ver[i].ilay_src_width%2) * sizeof(uint32_t);
 
 
-    
+      //------------------------
       double hresiz_ratio;
       double vresiz_ratio;
 
-      if ( (random()%9) != 0){
-	hresiz_ratio = (double)random()/1000 ;
-	do{
-	  if ( (random()%9) != 1){
-	    hresiz_ratio = (double)(random()%10000+1)/100000;
-	  }else{
-	    hresiz_ratio = (double)(random()%128)+((double)(random()%100000)/100000);
-	  }
-	  //}while(hresiz_ratio>=128 || hresiz_ratio <= 0.0078125);
-	}while(hresiz_ratio>=127.5 || hresiz_ratio <= 0.007875);
-
-	vresiz_ratio = (double)random()/10000 ;
-	do{
-	  if ( (random()%9) != 1)
-	    vresiz_ratio = (double)(random()%10000+1)/100000;
-	  else
-	    vresiz_ratio = (double)(random()%128)+((double)(random()%100000)/100000);
-	  //}while(vresiz_ratio>=128 || vresiz_ratio <= 0.0078125);
-	}while(vresiz_ratio>=127.5 || vresiz_ratio <= 0.007875);
-      }else
-	{
-	  hresiz_ratio = ((double)verc_ptr->layx_ver[i].ilay_dst_width / verc_ptr->layx_ver[i].ilay_src_width);
-	  vresiz_ratio = (double)verc_ptr->layx_ver[i].ilay_dst_height / verc_ptr->layx_ver[i].ilay_src_height;
-	  int tmp_w;
-	  do{
-	    tmp_w= verc_ptr->layx_ver[i].ilay_dst_width + (random()%100 - 50);
-	  }while( tmp_w <= 4 || tmp_w >= 4096 );
-	  verc_ptr->layx_ver[i].ilay_dst_width = tmp_w;
-
-	  int tmp_h;
-	  do{
-	    tmp_h= verc_ptr->layx_ver[i].ilay_dst_height + (random()%100 - 50);
-	  }while( tmp_h <= 4 || tmp_h >= 4096 );
-	  verc_ptr->layx_ver[i].ilay_dst_height = tmp_h;
-	}
 
       max_xpos = (verc_ptr->layx_ver[i].ilay_dst_xoft + verc_ptr->layx_ver[i].ilay_dst_width) > max_xpos? 
 	         (verc_ptr->layx_ver[i].ilay_dst_xoft + verc_ptr->layx_ver[i].ilay_dst_width):
@@ -1327,33 +1553,28 @@ void init_verc(x2d_tbench_verc_info_p verc_ptr)
 #endif
 
 
-      //printf(" >hratio: %f, vratio:%f\n", hresiz_ratio, vresiz_ratio);
       verc_ptr->layx_ver[i].ilay_hrsz_coef = (uint32_t)(((double)1/hresiz_ratio)*512);
       verc_ptr->layx_ver[i].ilay_vrsz_coef = (uint32_t)(((double)1/vresiz_ratio)*512);
       
-      uint32_t rnd_rsz_w_len = verc_ptr->layx_ver[i].ilay_dst_width + verc_ptr->layx_ver[i].ilay_dst_width%2;
+      verc_ptr->layx_ver[i].ilay_rsz_str = (verc_ptr->layx_ver[i].ilay_dst_width + 
+					    (verc_ptr->layx_ver[i].ilay_dst_width%2)) * sizeof(uint32_t); 
 
-      verc_ptr->layx_ver[i].ilay_rsz_str =  rnd_rsz_w_len * sizeof(uint32_t); 
+      init_layer_pix(layer_raw, 
+		     verc_ptr->layx_ver[i].ilay_argb_addr, // For Software use
+		     verc_ptr->layx_ver[i].ilay_src_width,
+		     verc_ptr->layx_ver[i].ilay_src_height,
+		     verc_ptr->layx_ver[i].ilay_argb_str, 
+		     
+		     verc_ptr->layx_ver[i].ilay_y_addr, // For Hardware use
+		     verc_ptr->layx_ver[i].ilay_u_addr,
+		     verc_ptr->layx_ver[i].ilay_v_addr,
+		     verc_ptr->layx_ver[i].ilay_y_str,
+		     
+		     verc_ptr->layx_ver[i].ilay_smode, // Layer information
+		     verc_ptr->layx_ver[i].ilay_rgbm,
+		     verc_ptr->layx_ver[i].ilay_apos
+		     );
 
-      init_pix(
-	       verc_ptr->layx_ver[i].ilay_argb_addr,//src
-	       verc_ptr->layx_ver[i].ilay_src_width, //src_w
-	       verc_ptr->layx_ver[i].ilay_src_height, //src_w
-	       verc_ptr->layx_ver[i].ilay_argb_str,   //src_str
-
-
-	       verc_ptr->layx_ver[i].ilay_bak_argb,
-	       verc_ptr->layx_ver[i].ilay_smode,
-	       0,
-	       1,
-	       verc_ptr->layx_ver[i].ilay_yaddr,
-	       verc_ptr->layx_ver[i].ilay_uaddr,
-	       verc_ptr->layx_ver[i].ilay_vaddr,
-	       verc_ptr->layx_ver[i].ilay_ystr,
-
-	       verc_ptr->layx_ver[i].ilay_rgbm,
-	       verc_ptr->layx_ver[i].ilay_apos
-               );
       /* -------------------- here should have the rotate ---------------------*/
       if ( fm_rot ){
 	
@@ -1369,16 +1590,29 @@ void init_verc(x2d_tbench_verc_info_p verc_ptr)
 	verc_ptr->layx_ver[i].ilay_rota_xcoef = verc_ptr->layx_ver[i].ilay_hrsz_coef;
 	verc_ptr->layx_ver[i].ilay_rota_ycoef = verc_ptr->layx_ver[i].ilay_vrsz_coef;
       }
-      
+
+      /***************************************************  Debug Used ***************************************/
       uint32_t rnd_rot_w_len = verc_ptr->layx_ver[i].ilay_rota_w + verc_ptr->layx_ver[i].ilay_rota_w%2;
       //uint32_t rnd_rot_h_len = verc_ptr->layx_ver[i].ilay_rota_h + verc_ptr->layx_ver[i].ilay_rota_h%2;
 
       verc_ptr->layx_ver[i].ilay_rota_str = rnd_rot_w_len * sizeof(uint32_t); 
       
+      //uint32_t rot_blk_size = rnd_rot_h_len * verc_ptr->layx_ver[i].ilay_rota_str;
 
-      verc_ptr->layx_ver[i].ilay_uvstr = format_yuv_nv ? verc_ptr->layx_ver[i].ilay_ystr : (verc_ptr->layx_ver[i].ilay_ystr/2);
 
-      
+      uint32_t one_pix_unit = ( format_rgb888 ? 4 :
+				format_rgb2 ? 2 : 1);
+
+      verc_ptr->layx_ver[i].ilay_rot_y_str = ( format_yuvt ? (verc_ptr->layx_ver[i].ilay_rota_w/16 * 256) : 
+					       ( (verc_ptr->layx_ver[i].ilay_rota_w + 15) & 0xFFFFFFF0) ) * one_pix_unit; 
+
+      //uint32_t rot_size = verc_ptr->layx_ver[i].ilay_rota_h * verc_ptr->layx_ver[i].ilay_rot_y_str;
+
+      /***************************************************  Debug Used ***************************************/
+
+      verc_ptr->layx_ver[i].ilay_uv_str = format_yuv_nv ? verc_ptr->layx_ver[i].ilay_y_str : (verc_ptr->layx_ver[i].ilay_y_str/2);
+
+
       fm_rotate(
 		verc_ptr->layx_ver[i].ilay_argb_addr, //src
 		verc_ptr->layx_ver[i].ilay_src_width, //src_w
@@ -1394,9 +1628,10 @@ void init_verc(x2d_tbench_verc_info_p verc_ptr)
 		verc_ptr->layx_ver[i].ilay_hmirror, //hmir
 		verc_ptr->layx_ver[i].ilay_vmirror //hmir
                 );
-
+      
       uint32_t csc_en;
       if ( format_yuv )
+	/*---------- here need add function to cpy YUVS---------------*/
 	csc_en = 1;
       else
 	csc_en = 0;
@@ -1421,10 +1656,9 @@ void init_verc(x2d_tbench_verc_info_p verc_ptr)
 		 verc_ptr->layx_ver[i].ilay_smode		 
 		 );      
 
-
     }  
 
-  /* =================== gen bak ground ====================*/
+  /*  Gen Destiantion Information */
   verc_ptr->layb_ver.ilay_en = random()%2; 
   verc_ptr->layb_ver.ilay_pm = random()%2; 
   verc_ptr->layb_ver.ilay_galpha_en = random()%2; 
@@ -1433,17 +1667,42 @@ void init_verc(x2d_tbench_verc_info_p verc_ptr)
   verc_ptr->layb_ver.ilay_bak_argb = random();
   verc_ptr->layb_ver.ilay_tile_en = random()%2;
 
+  verc_ptr->layb_ver.ilay_apos = random()%2;
+  verc_ptr->layb_ver.ilay_fmt = random()%4;
+  if(verc_ptr->layb_ver.ilay_fmt == DST_RGB565)
+    verc_ptr->layb_ver.ilay_rgb_mode = random()%2;
+  else
+    verc_ptr->layb_ver.ilay_rgb_mode = random()%6;
 
 #ifdef USER_CFG_OPT
   verc_ptr->layb_ver.ilay_en = 1; 
-  verc_ptr->layb_ver.ilay_pm = 0x0; 
-  verc_ptr->layb_ver.ilay_tile_en = 0;
+  verc_ptr->layb_ver.ilay_pm = 0; 
+  verc_ptr->layb_ver.ilay_tile_en = 1;
   verc_ptr->layb_ver.ilay_galpha_en = 0; 
-  verc_ptr->layb_ver.ilay_galpha = 0x2a;     
+  verc_ptr->layb_ver.ilay_galpha = 0xFF;     
   verc_ptr->layb_ver.ilay_mask_en = 0;
   verc_ptr->layb_ver.ilay_bak_argb = 0x15be0bbd; 
+
+  verc_ptr->layb_ver.ilay_apos = 0;
+  verc_ptr->layb_ver.ilay_fmt = DST_ARGB;//DST_RGB565;//
+  verc_ptr->layb_ver.ilay_rgb_mode = 0;//SRC_FMT_BGR;
 #endif
-  
+
+  if ( verc_ptr->layb_ver.ilay_fmt == DST_RGB565 || verc_ptr->layb_ver.ilay_fmt == DST_RGB555 )
+    verc_ptr->layb_ver.ilay_tile_en = 0 ;
+    
+  printk(" > DST FMT : %s , rgb_mode %x , apos %x  layer_en %x tile_en %x\n", 
+	 ( (verc_ptr->layb_ver.ilay_fmt == DST_RGB565) ? "RGB565" :
+	   (verc_ptr->layb_ver.ilay_fmt == DST_RGB555) ? "RGB555" :
+	   (verc_ptr->layb_ver.ilay_fmt == DST_ARGB) ? "ARGB" :
+	   (verc_ptr->layb_ver.ilay_fmt == DST_XRGB888) ? "XRGB" : "Unknown"
+	   ) , verc_ptr->layb_ver.ilay_rgb_mode , 
+	 verc_ptr->layb_ver.ilay_apos ,
+	 verc_ptr->layb_ver.ilay_en,
+	 verc_ptr->layb_ver.ilay_tile_en
+	 );
+
+
   if ( verc_ptr->layb_ver.ilay_pm == 1 )
     verc_ptr->layb_ver.ilay_galpha_en = 0;
 
@@ -1452,19 +1711,16 @@ void init_verc(x2d_tbench_verc_info_p verc_ptr)
     verc_ptr->layb_ver.ilay_pm = 0 ;
   }
 
-
   if ( verc_ptr->layb_ver.ilay_pm ==1 && verc_ptr->lay_num == 0)
     verc_ptr->layb_ver.ilay_en = 0;
-  
 
   verc_ptr->layb_ver.ilay_width = random()%LAY_DST_MAXW+1;
   verc_ptr->layb_ver.ilay_height = random()%LAY_DST_MAXH+1;
 
 #ifdef USER_CFG_OPT
-  verc_ptr->layb_ver.ilay_width = 0x20;
-  verc_ptr->layb_ver.ilay_height = 0x20;
+  verc_ptr->layb_ver.ilay_width = 480;
+  verc_ptr->layb_ver.ilay_height = 272;
 #endif
-
 
   verc_ptr->layb_ver.ilay_width = verc_ptr->layb_ver.ilay_width > max_xpos? 
                                   verc_ptr->layb_ver.ilay_width :
@@ -1474,67 +1730,67 @@ void init_verc(x2d_tbench_verc_info_p verc_ptr)
                                    verc_ptr->layb_ver.ilay_height :
                                    max_ypos;
 
-  if ( verc_ptr->layb_ver.ilay_tile_en )
+  printk(" > DST Width : %d , Height %d \n", verc_ptr->layb_ver.ilay_width,verc_ptr->layb_ver.ilay_height);
+
+  uint32_t dst_raw_size;
+  if ( verc_ptr->layb_ver.ilay_tile_en && (verc_ptr->layb_ver.ilay_fmt == DST_ARGB || verc_ptr->layb_ver.ilay_fmt == DST_XRGB888) )
     {
       verc_ptr->layb_ver.ilay_width = (verc_ptr->layb_ver.ilay_width + 15) & 0xFFFFFFF0;
       verc_ptr->layb_ver.ilay_height = (verc_ptr->layb_ver.ilay_height + 15) & 0xFFFFFFF0;
-    }
 
-
-  verc_ptr->layb_ver.ilay_argb_str = (verc_ptr->layb_ver.ilay_width + (verc_ptr->layb_ver.ilay_width%2))*(sizeof(uint32_t));
-
-
-
-
-  if ( verc_ptr->layb_ver.ilay_tile_en == 1)
-    {
       verc_ptr->layb_ver.ilay_std_str = verc_ptr->layb_ver.ilay_width*sizeof(uint32_t) * 16;
-      
-    }else{
-      verc_ptr->layb_ver.ilay_std_str = verc_ptr->layb_ver.ilay_width*sizeof(uint32_t) + 
-	(verc_ptr->layb_ver.ilay_width%2)*sizeof(uint32_t);
+      verc_ptr->layb_ver.ilay_hw_str = verc_ptr->layb_ver.ilay_width*sizeof(uint32_t) * 16;
+      //
+      verc_ptr->layb_ver.ilay_raw_str = verc_ptr->layb_ver.ilay_std_str;
+      dst_raw_size = ((verc_ptr->layb_ver.ilay_height + 15)/16)*verc_ptr->layb_ver.ilay_raw_str;
+
+    }else {
+      verc_ptr->layb_ver.ilay_std_str = ( verc_ptr->layb_ver.ilay_width + (verc_ptr->layb_ver.ilay_width%2))*sizeof(uint32_t);
+
+      verc_ptr->layb_ver.ilay_hw_str = ( verc_ptr->layb_ver.ilay_width + (verc_ptr->layb_ver.ilay_width%2))*sizeof(uint32_t);
+
+      //
+      verc_ptr->layb_ver.ilay_raw_str = verc_ptr->layb_ver.ilay_std_str;
+      dst_raw_size = verc_ptr->layb_ver.ilay_height*verc_ptr->layb_ver.ilay_raw_str;
+
     }
 
-  if ( verc_ptr->layb_ver.ilay_tile_en == 1)
-    {
-      verc_ptr->layb_ver.ilay_raw_str = verc_ptr->layb_ver.ilay_width*sizeof(uint32_t) * 16;
-    }
-  else {
-    verc_ptr->layb_ver.ilay_raw_str = verc_ptr->layb_ver.ilay_width*sizeof(uint32_t) 
-                                    + (verc_ptr->layb_ver.ilay_width%2)*sizeof(uint32_t)
-                                      ;
-  }
+
+  verc_ptr->layb_ver.ilay_argb_str = (verc_ptr->layb_ver.ilay_width + (verc_ptr->layb_ver.ilay_width%2))*sizeof(uint32_t);
 
 
   if ( verc_ptr->layb_ver.ilay_en ){
-      init_pix(
-	       verc_ptr->layb_ver.ilay_argb_addr,//dst
-	       verc_ptr->layb_ver.ilay_width, //dst_w
-	       verc_ptr->layb_ver.ilay_height, //dst_w
-	       verc_ptr->layb_ver.ilay_argb_str,   //dst_str
+#ifdef X2D_DEBUG
+	  printk(" > background %x \n", background);
+	  printk(" > ilay_argb_addr %x \n", verc_ptr->layb_ver.ilay_argb_addr);
+	  printk(" > ilay_hw_addr %x \n", verc_ptr->layb_ver.ilay_hw_addr);
+	  printk(" > ilay_raw_addr %x \n", verc_ptr->layb_ver.ilay_raw_addr);
+#endif
+    init_dst_pix(background,
+		 verc_ptr->layb_ver.ilay_argb_addr,  // raw for software
+		 verc_ptr->layb_ver.ilay_width,      //
+		 verc_ptr->layb_ver.ilay_height,     //
+		 verc_ptr->layb_ver.ilay_argb_str,   //
 
-	       verc_ptr->layb_ver.ilay_bak_argb,
-	       0,
-	       0,
-	       0,0,0,0,0, 0, 1
-               );    
-      
+		 verc_ptr->layb_ver.ilay_hw_addr, // Hardware raw pixels
+		 verc_ptr->layb_ver.ilay_hw_str,  // Be care here !
+		 // Base information
+		 verc_ptr->layb_ver.ilay_fmt,
+		 verc_ptr->layb_ver.ilay_rgb_mode,
+		 verc_ptr->layb_ver.ilay_apos,
+		 verc_ptr->layb_ver.ilay_tile_en
+		 );
+#ifdef X2D_DEBUG
+    printk(" > cp hw raw backup \n");
+#endif
+
+    recovery_bk_fm(verc_ptr->layb_ver.ilay_hw_addr , verc_ptr->layb_ver.ilay_raw_addr , TEST_SIZE); // backup
+#ifdef X2D_DEBUG
+    printk(" > cp hw raw backup out \n");
+#endif
+
   }
 
-  blk_copyw_fm( 
-	       verc_ptr->layb_ver.ilay_argb_addr,//src
-	       verc_ptr->layb_ver.ilay_width, //src_w
-	       verc_ptr->layb_ver.ilay_height, //src_w
-	       verc_ptr->layb_ver.ilay_argb_str,   //src_str
-	       
-	       verc_ptr->layb_ver.ilay_raw_addr,
-	       verc_ptr->layb_ver.ilay_width, //dst_w
-	       verc_ptr->layb_ver.ilay_height, //dst_w
-	       verc_ptr->layb_ver.ilay_raw_str,   //dst_str
-	       
-	       verc_ptr->layb_ver.ilay_bak_argb,
-	       verc_ptr->layb_ver.ilay_tile_en
-	       );
 
   x2d_osd_5layer(
 		 verc_ptr->layb_ver.ilay_en,		 // uint32_t ilayb_en,
@@ -1605,39 +1861,37 @@ void init_verc(x2d_tbench_verc_info_p verc_ptr)
 		 verc_ptr->layx_ver[3].ilay_bak_argb,//ilay0_str,
 		 verc_ptr->layx_ver[3].ilay_osdm
 		 );
+#ifdef X2D_DEBUG
+    printk(" > x2d_osd_5layer out \n");
+#endif
 
-  blk_copyw_fm( 
-	       verc_ptr->layb_ver.ilay_argb_addr,//src
-	       verc_ptr->layb_ver.ilay_width, //src_w
-	       verc_ptr->layb_ver.ilay_height, //src_w
-	       verc_ptr->layb_ver.ilay_argb_str,   //src_str
+  // Re-order RGB here !
+  blk_copyw_fm(
+	       verc_ptr->layb_ver.ilay_argb_addr,
+	       verc_ptr->layb_ver.ilay_width,
+	       verc_ptr->layb_ver.ilay_height,
+	       verc_ptr->layb_ver.ilay_argb_str,
 
 	       verc_ptr->layb_ver.ilay_std_addr,
-	       verc_ptr->layb_ver.ilay_width, //dst_w
-	       verc_ptr->layb_ver.ilay_height, //dst_w
-	       verc_ptr->layb_ver.ilay_std_str,   //dst_str
-	       verc_ptr->layb_ver.ilay_bak_argb,
-	       verc_ptr->layb_ver.ilay_tile_en
+	       verc_ptr->layb_ver.ilay_std_str,
+
+	       verc_ptr->layb_ver.ilay_tile_en,
+	       verc_ptr->layb_ver.ilay_fmt,
+	       verc_ptr->layb_ver.ilay_rgb_mode,
+	       verc_ptr->layb_ver.ilay_apos
 	       );
 
-
-
-}
-
-#ifdef X2D_IRQ_MODE
-static void x2d_irq_handle(int irq, void *d)
-{
-	struct fw_dev *dev = d;
-	write_x2d_reg(X2D_SLV_GLB_TRIG, X2D_IRQ_CLR);  
-	fw_finish(dev);
-}
+#ifdef X2D_DEBUG
+    printk(" > Bakup STD out \n");
 #endif
+
+}
 
 static int x2d_prepare(struct fw_dev *dev)
 {
   struct x2d_data *x2d_p;
-#ifdef X2D_SHOW
-  printk(" +X2D prepare ! \n");
+#ifdef X2D_DEBUG
+    printk(" > Enter x2d_prepare \n");
 #endif
 
 #ifdef SEED_CFG
@@ -1659,16 +1913,18 @@ static int x2d_prepare(struct fw_dev *dev)
   x2d_p->times = 0;
 
   // Malloc X2D memory .
-  x2d_p->chn_ptr = (x2d_chain_info_p) mem_alloc(TEST_SIZE);
-  x2d_p->verc_ptr = (x2d_tbench_verc_info_p) mem_alloc(TEST_SIZE);
-  x2d_p->verc_ptr->layb_ver.ilay_argb_addr = mem_alloc(TEST_SIZE *5);
-  x2d_p->verc_ptr->layb_ver.ilay_std_addr = mem_alloc(TEST_SIZE *5);
-  x2d_p->verc_ptr->layb_ver.ilay_raw_addr = mem_alloc(TEST_SIZE *5);
+  x2d_p->chn_ptr = (x2d_chain_info_p) mem_alloc(TEST_SIZE/512);
+  x2d_p->verc_ptr = (x2d_tbench_verc_info_p) mem_alloc(TEST_SIZE/512);
+  x2d_p->verc_ptr->layb_ver.ilay_argb_addr = mem_alloc(TEST_SIZE);
+  x2d_p->verc_ptr->layb_ver.ilay_std_addr = mem_alloc(TEST_SIZE);
+  x2d_p->verc_ptr->layb_ver.ilay_raw_addr = mem_alloc(TEST_SIZE);
+  x2d_p->verc_ptr->layb_ver.ilay_hw_addr = mem_alloc(TEST_SIZE);
 
   if (!x2d_p->chn_ptr || !x2d_p->verc_ptr ||
       !x2d_p->verc_ptr->layb_ver.ilay_argb_addr ||
       !x2d_p->verc_ptr->layb_ver.ilay_std_addr ||
-      !x2d_p->verc_ptr->layb_ver.ilay_raw_addr
+      !x2d_p->verc_ptr->layb_ver.ilay_raw_addr ||
+      !x2d_p->verc_ptr->layb_ver.ilay_hw_addr 
       ) {
     printk("X2D malloc memory FAILED !\n");
     free(x2d_p);
@@ -1677,20 +1933,20 @@ static int x2d_prepare(struct fw_dev *dev)
 
   int i;
   for(i = 0; i <4 ; i++){
-    x2d_p->verc_ptr->layx_ver[i].ilay_argb_addr = mem_alloc(TEST_SIZE * 5);
+    x2d_p->verc_ptr->layx_ver[i].ilay_argb_addr = mem_alloc(TEST_SIZE);
 
-    x2d_p->verc_ptr->layx_ver[i].ilay_yaddr = mem_alloc(TEST_SIZE * 5);
-    x2d_p->verc_ptr->layx_ver[i].ilay_uaddr = mem_alloc(TEST_SIZE * 5);
-    x2d_p->verc_ptr->layx_ver[i].ilay_vaddr = mem_alloc(TEST_SIZE * 5);
+    x2d_p->verc_ptr->layx_ver[i].ilay_y_addr = mem_alloc(TEST_SIZE);
+    x2d_p->verc_ptr->layx_ver[i].ilay_u_addr = mem_alloc(TEST_SIZE);
+    x2d_p->verc_ptr->layx_ver[i].ilay_v_addr = mem_alloc(TEST_SIZE);
+    x2d_p->verc_ptr->layx_ver[i].ilay_rota_addr = mem_alloc(TEST_SIZE);
 
-    x2d_p->verc_ptr->layx_ver[i].ilay_rota_addr = mem_alloc(TEST_SIZE * 5);
-    x2d_p->verc_ptr->layx_ver[i].ilay_rsz_addr = mem_alloc(TEST_SIZE * 5);
+    x2d_p->verc_ptr->layx_ver[i].ilay_rsz_addr = mem_alloc(TEST_SIZE);
 
 	  
     if (!x2d_p->verc_ptr->layx_ver[i].ilay_argb_addr || 
-	!x2d_p->verc_ptr->layx_ver[i].ilay_yaddr ||
-	!x2d_p->verc_ptr->layx_ver[i].ilay_uaddr ||
-	!x2d_p->verc_ptr->layx_ver[i].ilay_vaddr ||
+	!x2d_p->verc_ptr->layx_ver[i].ilay_y_addr ||
+	!x2d_p->verc_ptr->layx_ver[i].ilay_u_addr ||
+	!x2d_p->verc_ptr->layx_ver[i].ilay_v_addr ||
 	!x2d_p->verc_ptr->layx_ver[i].ilay_rota_addr ||
 	!x2d_p->verc_ptr->layx_ver[i].ilay_rsz_addr 
 	) {
@@ -1700,29 +1956,21 @@ static int x2d_prepare(struct fw_dev *dev)
     }
 
     // Get Physical Address for X2D hardware .
-    x2d_p->chn_ptr->x2d_lays[i].y_addr = mem_get_phy(x2d_p->verc_ptr->layx_ver[i].ilay_yaddr);//Physical Address
-    x2d_p->chn_ptr->x2d_lays[i].u_addr = mem_get_phy(x2d_p->verc_ptr->layx_ver[i].ilay_uaddr);//Physical Address
-    x2d_p->chn_ptr->x2d_lays[i].v_addr = mem_get_phy(x2d_p->verc_ptr->layx_ver[i].ilay_vaddr);//Physical Address
+    x2d_p->chn_ptr->x2d_lays[i].y_addr = mem_get_phy(x2d_p->verc_ptr->layx_ver[i].ilay_y_addr);//Physical Address
+    x2d_p->chn_ptr->x2d_lays[i].u_addr = mem_get_phy(x2d_p->verc_ptr->layx_ver[i].ilay_u_addr);//Physical Address
+    x2d_p->chn_ptr->x2d_lays[i].v_addr = mem_get_phy(x2d_p->verc_ptr->layx_ver[i].ilay_v_addr);//Physical Address
   }
 
 
-#ifdef X2D_SHOW
-  printk(" +X2D Malloc over ! \n");
-#endif
   // Initial X2D data and chain here!
   init_verc(x2d_p->verc_ptr);
-#ifdef X2D_SHOW
-  printk(" +X2D initial pixels over ! \n");
-#endif
   x2d_p->chn_ptr->overlay_num = x2d_p->verc_ptr->lay_num;
   x2d_p->chn_ptr->dst_tile_en = x2d_p->verc_ptr->layb_ver.ilay_tile_en;
-	
-  if ( x2d_p->verc_ptr->dst_tlb_en == 1)
-    x2d_p->chn_ptr->dst_addr = (uint32_t)x2d_p->verc_ptr->layb_ver.ilay_argb_addr;
-  else
-    x2d_p->chn_ptr->dst_addr = mem_get_phy(x2d_p->verc_ptr->layb_ver.ilay_argb_addr);//Physical Address
 
-  x2d_p->chn_ptr->dst_ctrl_str = ( (x2d_p->verc_ptr->layb_ver.ilay_raw_str & DST_STR_MSK)
+	
+  x2d_p->chn_ptr->dst_addr = mem_get_phy(x2d_p->verc_ptr->layb_ver.ilay_hw_addr);//Physical Address
+
+  x2d_p->chn_ptr->dst_ctrl_str = ( (x2d_p->verc_ptr->layb_ver.ilay_hw_str & DST_STR_MSK)
 				   |(x2d_p->verc_ptr->layb_ver.ilay_en? BACK_EN: 0)
 				   |(x2d_p->verc_ptr->layb_ver.ilay_pm? DST_PREM: 0)
 				   |(x2d_p->verc_ptr->layb_ver.ilay_galpha_en? DST_GLOBAL_ALPHA: 0)
@@ -1731,9 +1979,14 @@ static int x2d_prepare(struct fw_dev *dev)
 				     )
 				   | (x2d_p->verc_ptr->layb_ver.ilay_mask_en? DST_MSK_EN:0)
 				   );
-  
   x2d_p->chn_ptr->dst_width = x2d_p->verc_ptr->layb_ver.ilay_width;
   x2d_p->chn_ptr->dst_height = x2d_p->verc_ptr->layb_ver.ilay_height;
+  // new x2d
+  x2d_p->chn_ptr->dst_argb = x2d_p->verc_ptr->layb_ver.ilay_bak_argb;
+
+  x2d_p->chn_ptr->dst_fmt = ( (x2d_p->verc_ptr->layb_ver.ilay_apos<<8) |
+			      (x2d_p->verc_ptr->layb_ver.ilay_fmt<<4) |
+			      (x2d_p->verc_ptr->layb_ver.ilay_rgb_mode) );
 
   for ( i = 0 ; i < x2d_p->verc_ptr->lay_num; i++)
     {
@@ -1754,18 +2007,17 @@ static int x2d_prepare(struct fw_dev *dev)
 					   | (x2d_p->verc_ptr->layx_ver[i].ilay_osdm<<4)
 					   );
 
-
       x2d_p->chn_ptr->x2d_lays[i].bk_argb = x2d_p->verc_ptr->layx_ver[i].ilay_bak_argb;
 
       x2d_p->chn_ptr->x2d_lays[i].swidth = x2d_p->verc_ptr->layx_ver[i].ilay_src_width;
       x2d_p->chn_ptr->x2d_lays[i].sheight = x2d_p->verc_ptr->layx_ver[i].ilay_src_height;
 
       if ( x2d_p->verc_ptr->layx_ver[i].ilay_smode == SRC_YUV_TILE ){
-	x2d_p->chn_ptr->x2d_lays[i].ystr = x2d_p->verc_ptr->layx_ver[i].ilay_ystr >> 4;
-	x2d_p->chn_ptr->x2d_lays[i].uvstr = x2d_p->verc_ptr->layx_ver[i].ilay_uvstr >> 4;
+	x2d_p->chn_ptr->x2d_lays[i].ystr = x2d_p->verc_ptr->layx_ver[i].ilay_y_str >> 4;
+	x2d_p->chn_ptr->x2d_lays[i].uvstr = x2d_p->verc_ptr->layx_ver[i].ilay_uv_str >> 4;
       }else {
-	x2d_p->chn_ptr->x2d_lays[i].ystr = x2d_p->verc_ptr->layx_ver[i].ilay_ystr;
-	x2d_p->chn_ptr->x2d_lays[i].uvstr = x2d_p->verc_ptr->layx_ver[i].ilay_uvstr;
+	x2d_p->chn_ptr->x2d_lays[i].ystr = x2d_p->verc_ptr->layx_ver[i].ilay_y_str;
+	x2d_p->chn_ptr->x2d_lays[i].uvstr = x2d_p->verc_ptr->layx_ver[i].ilay_uv_str;
       }
 
       x2d_p->chn_ptr->x2d_lays[i].owidth = x2d_p->verc_ptr->layx_ver[i].ilay_dst_width;
@@ -1775,30 +2027,27 @@ static int x2d_prepare(struct fw_dev *dev)
 
       x2d_p->chn_ptr->x2d_lays[i].rsz_hcoef = x2d_p->verc_ptr->layx_ver[i].ilay_hrsz_coef;
       x2d_p->chn_ptr->x2d_lays[i].rsz_vcoef = x2d_p->verc_ptr->layx_ver[i].ilay_vrsz_coef;      
+
+
     }
 
   write_x2d_reg(X2D_SLV_GLB_TRIG, X2D_RST);
-#ifdef X2D_SHOW
-  printk(" +X2D chain over ! \n");
-#endif
 
   dev->priv = x2d_p;
+#ifdef X2D_SHOW
+  printk(" > X2D Prepare ! ..");
+#endif
   return 0;
 }
+
 
 static int x2d_start(struct fw_dev *dev)
 {
   struct x2d_data *x2d_p = dev->priv;
-#ifdef X2D_SHOW
-  printk(" +X2D start ! ..");
-#endif
 
-  recovery_bk_fm(x2d_p->verc_ptr->layb_ver.ilay_raw_addr , x2d_p->verc_ptr->layb_ver.ilay_argb_addr, TEST_SIZE * 5);
-
-  //write_x2d_reg(X2D_SLV_TLB_BASE, (AP_TLB_BASE));
+  recovery_bk_fm(x2d_p->verc_ptr->layb_ver.ilay_raw_addr , x2d_p->verc_ptr->layb_ver.ilay_hw_addr, TEST_SIZE);
 
   write_x2d_reg(X2D_SLV_GLB_CTRL, DESP_EN | WDOG_EN | 
-
 #ifdef X2D_IRQ_MODE 
 		IRQ_EN | // X2D irq method
 #endif
@@ -1808,81 +2057,99 @@ static int x2d_start(struct fw_dev *dev)
 		(x2d_p->verc_ptr->layx_ver[1].ilayer_tlb_en ? L1_TLB_EN : 0) |
 		(x2d_p->verc_ptr->layx_ver[2].ilayer_tlb_en ? L2_TLB_EN : 0) |
 		(x2d_p->verc_ptr->layx_ver[3].ilayer_tlb_en ? L3_TLB_EN : 0) |
-		X2D_BANK_1K
+		((x2d_p->verc_ptr->ddr_bank_sel == 1)? DDR_BANK_1K : 
+		 ((x2d_p->verc_ptr->ddr_bank_sel == 2)?
+		  DDR_BANK_2K : 
+		  DDR_BANK_4K)
+		 )| (x2d_p->verc_ptr->shart_level << 16)
 		);
 
   write_x2d_reg(X2D_SLV_DHA, mem_get_phy(x2d_p->chn_ptr) );
 
   write_x2d_reg(X2D_SLV_WDOG_CNT, 13000000);
 
-  write_x2d_reg(X2D_SLV_DST_BARGB, x2d_p->verc_ptr->layb_ver.ilay_bak_argb);
-
   write_x2d_reg(X2D_SLV_GLB_TRIG, X2D_START); // Start X2D here .
 
-  blast_cache_all();
-
 #ifdef X2D_SHOW
-  printk(" .\n");
+  printk(" > X2D start ! ..");
 #endif
-
   return 0;
 }
 
-#ifndef X2D_IRQ_MODE
 static void x2d_ask(struct fw_dev *dev)
 {
   struct x2d_data *x2d_p = dev->priv;
-#ifdef X2D_SHOW
-  printk("A");
-#endif
   
-  if ((read_x2d_reg(X2D_SLV_GLB_STATUS) & GLB_FSM_MSK) != GIDLE)
-	  return;
-
-  fw_finish(dev);
+  if((read_x2d_reg(X2D_SLV_GLB_STATUS) & GLB_FSM_MSK) == GIDLE){
+	  
+	fw_finish(dev);
+  }
 }
-#endif
 
 static chk_t x2d_check(struct fw_dev *dev)
 {
-  struct x2d_data *x2d_p = dev->priv;
-
-  if ( (read_x2d_reg(X2D_SLV_GLB_STATUS) & GLB_WDOG_ERR) != 0)
-    printk(" +X2D : Watch dog error !\n");
-  uint32_t consum_time = read_x2d_reg(X2D_SLV_GLB_TIME);
-  double cycle_per_pixel = ((double)consum_time)/(x2d_p->verc_ptr->layb_ver.ilay_width*x2d_p->verc_ptr->layb_ver.ilay_height+1);
-  double taget_cycle_per_pixel = (300*1000000)/(1920*1280*30);  
+#ifdef X2D_DEBUG
+	printk(" > Enter x2d_check \n");
+#endif
+	struct x2d_data *x2d_p = dev->priv;
+	if ( (read_x2d_reg(X2D_SLV_GLB_STATUS) & GLB_WDOG_ERR) != 0)
+		printk(" +X2D : Watch dog error !\n");
+	uint32_t consum_time = read_x2d_reg(X2D_SLV_GLB_TIME);
+	double cycle_per_pixel = ((double)consum_time)/(x2d_p->verc_ptr->layb_ver.ilay_width*
+							x2d_p->verc_ptr->layb_ver.ilay_height+1);
+	double taget_cycle_per_pixel = (300*1000000)/(1920*1280*30);  
   
-  printk(" ++consum_time:%x\n", consum_time);
-  printk(" ++GKER_W --cycle: %d time:%fns/per_pix   target: %fns   %f%% \n", consum_time, 
-	 cycle_per_pixel,  taget_cycle_per_pixel, cycle_per_pixel*100/taget_cycle_per_pixel
-	 ); 
+	uint32_t wdata_trans_num = read_x2d_reg(X2D_SLV_BWR_DATA);
+	uint32_t wdata_trans_cycle = read_x2d_reg(X2D_SLV_BWR_CYC);
 
-  write_x2d_reg(X2D_SLV_GLB_TRIG, X2D_IRQ_CLR);
+	uint32_t rdata_trans_num = read_x2d_reg(X2D_SLV_BRD_DATA);
+	uint32_t rdata_trans_cycle = read_x2d_reg(X2D_SLV_BRD_CYC);
 
-  blast_cache_all();
+	printk(" > Cycle: %d time:%fns/per_pix   target: %fns   %f%% \n", consum_time, 
+	       cycle_per_pixel,  taget_cycle_per_pixel, cycle_per_pixel*100/taget_cycle_per_pixel
+		); 
 
-  int value = blk_cmp_fm(
-			 x2d_p->verc_ptr->layb_ver.ilay_argb_addr, 
-			 x2d_p->verc_ptr->layb_ver.ilay_width, 
-			 x2d_p->verc_ptr->layb_ver.ilay_height, 
-			 x2d_p->verc_ptr->layb_ver.ilay_argb_str,
-			 
-			 x2d_p->verc_ptr->layb_ver.ilay_raw_addr,
-			 x2d_p->verc_ptr->layb_ver.ilay_width,
-			 x2d_p->verc_ptr->layb_ver.ilay_height, 
-			 x2d_p->verc_ptr->layb_ver.ilay_raw_str,
-			 
-			 x2d_p->verc_ptr->layb_ver.ilay_tile_en
-			 );
+	printk(" > write data num: %d, cycle: %d, effect: %f%%\n", wdata_trans_num, wdata_trans_cycle, 
+	       (double)wdata_trans_num*100/(double)(wdata_trans_cycle+1)
+		);
+	printk(" > read  data num: %d, cycle: %d, effect: %f%%\n", rdata_trans_num, rdata_trans_cycle,
+	       (double)rdata_trans_num*100/(double)(rdata_trans_cycle+1)
+		);
 
-  if ( value ){
-    return CHK_FAILED;
-  }else {
-    if (x2d_p->times ++ > MAX_X2D_TEST_TIMES )
-      return CHK_FINISHED;
-    return CHK_PASSED;
-  }
+	blast_cache_all();
+#ifdef X2D_DEBUG
+    printk(" > Compare STD \n");
+#endif
+
+    int  value = blk_cmp_fm(
+	    x2d_p->verc_ptr->layb_ver.ilay_std_addr, // Software
+	    x2d_p->verc_ptr->layb_ver.ilay_width, 
+	    x2d_p->verc_ptr->layb_ver.ilay_height, 
+	    x2d_p->verc_ptr->layb_ver.ilay_std_str,
+	    
+	    x2d_p->verc_ptr->layb_ver.ilay_hw_addr, // Hardware
+	    x2d_p->verc_ptr->layb_ver.ilay_hw_str,
+	    
+	    x2d_p->verc_ptr->layb_ver.ilay_tile_en ,
+	    x2d_p->verc_ptr->layb_ver.ilay_fmt,
+	    x2d_p->verc_ptr->layb_ver.ilay_apos,
+	    x2d_p->verc_ptr->layb_ver.ilay_rgb_mode
+	    );
+#ifdef X2D_DEBUG
+	printk(" > After Compare STD %x \n", value);
+#endif
+
+	if ( value ){
+		return CHK_FAILED;
+	}else {
+		if (x2d_p->times ++ > MAX_X2D_TEST_TIMES )
+			return CHK_FINISHED;
+
+#ifdef X2D_SHOW
+  printk(" > X2D Check Pass ! ..");
+#endif
+		return CHK_PASSED;
+	}
 }
 
 static void x2d_halt(struct fw_dev *dev)
@@ -1897,21 +2164,26 @@ static void x2d_halt(struct fw_dev *dev)
   mem_free(x2d_p->verc_ptr->layb_ver.ilay_argb_addr);
   mem_free(x2d_p->verc_ptr->layb_ver.ilay_std_addr);
   mem_free(x2d_p->verc_ptr->layb_ver.ilay_raw_addr);
+  mem_free(x2d_p->verc_ptr->layb_ver.ilay_hw_addr);
 
   int i;
   for(i = 0; i <4 ; i++){
     mem_free(x2d_p->verc_ptr->layx_ver[i].ilay_argb_addr);
 
-    mem_free(x2d_p->verc_ptr->layx_ver[i].ilay_yaddr);
-    mem_free(x2d_p->verc_ptr->layx_ver[i].ilay_uaddr);
-    mem_free(x2d_p->verc_ptr->layx_ver[i].ilay_vaddr);
+    mem_free(x2d_p->verc_ptr->layx_ver[i].ilay_y_addr);
+    mem_free(x2d_p->verc_ptr->layx_ver[i].ilay_u_addr);
+    mem_free(x2d_p->verc_ptr->layx_ver[i].ilay_v_addr);
     mem_free(x2d_p->verc_ptr->layx_ver[i].ilay_rota_addr);
     mem_free(x2d_p->verc_ptr->layx_ver[i].ilay_rsz_addr);
+
   }
 
   mem_free(x2d_p->chn_ptr);
   mem_free(x2d_p->verc_ptr);
   free(x2d_p);
+#ifdef X2D_SHOW
+  printk(" > X2D Halt ! ..");
+#endif
 }
 
 static struct fw_ops x2d_dev_ops = {

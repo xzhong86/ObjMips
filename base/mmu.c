@@ -81,13 +81,14 @@ static unsigned int *get_entrylo(struct pgd *pgd, unsigned long addr)
 	}
 	return NULL;
 }
+/* physic addr never equal to zero */
 static phy_t get_phy_addr(unsigned long addr)
 {
 	int cpu = smp_cpu_id();
 	unsigned int *lop;
 
 	lop = get_entrylo(current_pgd[cpu],addr);
-	if (!lop)
+	if (!lop || !(*lop & PG_Valid))
 		return 0;
 	return (*lop >> 6) *PAGE_SIZE + addr %PAGE_SIZE;
 }
@@ -136,9 +137,11 @@ static int map_mem_pfn(unsigned pfn, int nrpage,
 	struct pgd *pgd;
 	unsigned long addr;
 
-	if (uaddr == 0)
+	/* the virtual page 0 and physic page 0 never mapped. */
+	if (pfn == 0 || uaddr == 0 || (pg_attr & PG_Valid) == 0)
 		return -1;
 
+	pr_debug("map pfn %x %d %lx\n", pfn, nrpage, uaddr);
 	addr = uaddr;
 	pg_attr &= 0x3f;
 	pgd = current_pgd[smp_cpu_id()];
@@ -146,9 +149,11 @@ static int map_mem_pfn(unsigned pfn, int nrpage,
 		unsigned int *lop;
 		lop = get_entrylo(pgd, addr);
 		if (!lop) {
-			if (insert_pte(pgd, addr))
+			if (insert_pte(pgd, addr)) {
 				unmap_range(uaddr, addr - PAGE_SIZE);
-			else
+				printk("map %lx %x err\n",addr,pfn);
+				break;
+			} else
 				continue;
 		}
 		*lop = (pfn << 6) | pg_attr;
@@ -157,7 +162,8 @@ static int map_mem_pfn(unsigned pfn, int nrpage,
 		nrpage --;
 	}
 
-	return 0;
+	dump_mem_pgd(pgd);
+	return nrpage == 0? 0 : -1;
 }
 
 struct range_unit {
@@ -185,6 +191,8 @@ static int insert_range(unsigned long uaddr, int nr_page)
 	if (*rup && (*rup)->uaddr < ru->end) {
 		spinlock_unlock(range_lock);
 		free(ru);
+		pr_debug("insert error, %lx %lx to %lx %lx\n",
+			 (*rup)->uaddr,(*rup)->end,ru->uaddr,ru->end);
 		return -1;
 	}
 	ru->next = *rup;
@@ -223,37 +231,42 @@ int unmap_mem_range(unsigned long uaddr)
 	return 0;
 }
 
-int map_mem_range(unsigned long addr, int len, 
+int map_mem_phy(unsigned long phy, unsigned len, 
+		unsigned long uaddr, unsigned pg_attr)
+{
+	struct range_unit *ru;
+	unsigned long start,end;
+	int ret;
+
+	if ((uaddr >> 28) == 8 || (uaddr >> 28) == 9 ||
+	    (uaddr >> 28) == 0xa || (uaddr >> 28) == 0xb )
+		return -1;
+	if ((pg_attr & PG_Valid) == 0)
+		return -1;
+
+	end = phy % PAGE_SIZE + len;
+	start = phy / PAGE_SIZE;
+	end = (end + PAGE_SIZE - 1) / PAGE_SIZE + start;
+	if (insert_range(uaddr & PAGE_MASK, end-start))
+		return -1;
+
+	ret = map_mem_pfn(start, end-start, uaddr & PAGE_MASK, pg_attr);
+	if (ret) {
+		ru = deliver_range(uaddr);
+		free(ru);
+	}
+	return ret;
+}
+int map_mem_range(unsigned long addr, unsigned len, 
 		  unsigned long uaddr, unsigned pg_attr)
 {
-	unsigned long start,end = addr + len;
+	phy_t phy;
 
 	if ((addr >> 28) != 8 && (addr >> 28) != 9)
 		return -1;
-	if ((uaddr >> 28) == 8 || (uaddr >> 28) == 9 ||
-	    (uaddr >> 28) == 0xa || (uaddr >> 28) == 0xb )
-		return -1;
 
-	start = K0_TO_PHYS(addr)/PAGE_SIZE;
-	end = (K0_TO_PHYS(end) + PAGE_SIZE -1)/PAGE_SIZE;
-	if (insert_range(uaddr & PAGE_MASK, end-start))
-		return -1;
-	return map_mem_pfn(start, end-start, uaddr & PAGE_MASK, pg_attr);
-}
-int map_mem_phy(unsigned long phy, int len, 
-		unsigned long uaddr, unsigned pg_attr)
-{
-	unsigned long start,end = phy + len;
-
-	if ((uaddr >> 28) == 8 || (uaddr >> 28) == 9 ||
-	    (uaddr >> 28) == 0xa || (uaddr >> 28) == 0xb )
-		return -1;
-
-	end = (end + PAGE_SIZE -1)/PAGE_SIZE;
-	start = phy/PAGE_SIZE;
-	if (insert_range(uaddr & PAGE_MASK, end-start))
-		return -1;
-	return map_mem_pfn(start, end-start, uaddr & PAGE_MASK, pg_attr);
+	phy = K0_TO_PHYS(addr);
+	return map_mem_phy(phy, len, uaddr, pg_attr);
 }
 
 struct page * find_page_addr(unsigned long vaddr)

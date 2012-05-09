@@ -2,8 +2,8 @@
 #include <base.h>
 #include <iomap.h>
 
-//#define	DDRC_BASE	0x13010000
-#define	DDRC_BASE	0x13020000
+#define	DDRC_BASE	0x13010000
+//#define	DDRC_BASE	0x13020000
 #define DEV_REG_BASE	ddrc_base
 
 #define DDRC_CFG	0x4
@@ -80,7 +80,7 @@ static int ddrc_remap(void)
 {
 	unsigned int base0, size0, mask0, mmap0_reg;
 	unsigned int base1, size1, mask1, mmap1_reg;
-	unsigned int size;
+	unsigned int size, ahb0, ahb1, ahb2;
 
 	size = initdram(0);
 	size1 = initdram1(0);
@@ -88,24 +88,35 @@ static int ddrc_remap(void)
 
 	base0 = 0;		/* remap to 0 */
 	base1 = base0 + (size0 >> 24);
-	mask0 = ~((size0 >> 24) - 1);
+	mask0 = (~((size0 >> 24) - 1) & 0xff);
 	mask1 = size1? ~((size1 >> 24) - 1): 0;
 
 	mmap0_reg = (base0 << 8) | mask0;
 	mmap1_reg = (base1 << 8) | mask1;
 
+#define REG(addr)	(*(volatile unsigned *)(addr))
+	ahb0 = REG(0xB3000000) | (1 << 31);
+	//ahb1 = REG(0xB3200000) | (1 << 15);
+	ahb2 = REG(0xB3400000) | (1 << 31);
+
+	printk("%x %x %x %x\n",mmap0_reg,mmap1_reg,ahb0,ahb2);
+
 	/* .align X = 2^X */
 	asm volatile (".align 5\n\tsync");
 	REG32(DDRC_MMAP0) = mmap0_reg;
 	REG32(DDRC_MMAP1) = mmap1_reg;
+	REG(0xB3400000) = ahb2;
+	//REG(0xB3200000) = ahb1;
+	REG(0xB3000000) = ahb0;
 
 	return 0;
 }
 
+static int ioremapped;
 static void setup_ioremap(char *arg)
 {
 	if (arg[0] == '1')
-		jzsoc_mem_remapped = 1;
+		ioremapped = 1;
 }
 __setup("ioremap", setup_ioremap);
 
@@ -116,7 +127,8 @@ int ddrc_init(void)
 	unsigned int size;
 
 	ddrc_base = ioremap(DDRC_BASE, 0x1000);
-	if (jzsoc_mem_remapped) {
+	if (ioremapped) {
+		jzsoc_mem_remapped = 1;
 		ddrc_remap();
 		ddrc_base = ioremap(DDRC_BASE, 0x1000);
 		dev_uart_remap();

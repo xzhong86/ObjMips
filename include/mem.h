@@ -29,9 +29,9 @@ typedef unsigned long phy_t;
 #endif
 
 /* MMU system */
-int map_mem_range(unsigned long k0addr, int len, 
+int map_mem_range(unsigned long k0addr, unsigned len, 
 		  unsigned long vaddr, unsigned pg_attr);
-int map_mem_phy(phy_t addr, int len, 
+int map_mem_phy(phy_t addr, unsigned len, 
 		unsigned long vaddr, unsigned pg_attr);
 
 int unmap_mem_range(unsigned long vaddr);

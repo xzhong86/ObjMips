@@ -360,9 +360,9 @@ unsigned long mem_get_phy(void * p)
 	area = vaddr >> 28;
 	off  = vaddr & 0xFFFFFFF;
 	if (area == 8 || area == 0xa)
-		return area;
+		return off;
 	if (area == 9 || area == 0xb)
-		return area + 0x10000000;
+		return off + 0x10000000;
 
 	page = find_page_addr(vaddr);
 	if (!page)
@@ -377,6 +377,7 @@ unsigned long mem_get_phy(void * p)
 /* JZSoC remap */
 int jzsoc_mem_remapped;
 
+#if 0
 /* FIXME: more complex remap system */
 static unsigned long iomap_addr = 0xE0000000;
 void *__ioremap(phy_t addr, unsigned size)
@@ -389,6 +390,7 @@ void *__ioremap(phy_t addr, unsigned size)
 	if (!jzsoc_mem_remapped)
 		return (void*)PHYS_TO_K1(addr);
 
+	addr += 0xE0000000;
 	pgoff = addr & (PAGE_SIZE -1);
 	addr -= pgoff;
 	size += pgoff;
@@ -403,3 +405,48 @@ void iounmap(void *vaddr)
 {
 	return;
 }
+
+#else
+/* a simple remap system, linely remap 0xF0000000~0xFFFFFFFF
+ * to virtual address 0xE0000000~0xEFFFFFFF
+ */
+void *__ioremap(phy_t phy, unsigned size)
+{
+	unsigned long addr;
+	phy_t start, end;
+
+	if (((phy) >> 28) != 1)
+		return NULL;
+	if (!jzsoc_mem_remapped)
+		return (void*)PHYS_TO_K1(phy);
+
+	addr = phy + 0xD0000000;
+	start = mem_get_phy((void*)(addr));
+	end = mem_get_phy((void*)(addr + size -1));
+
+	if (start && end)
+		return (void*)addr;
+	if (end) {
+		while (end && size > PAGE_SIZE) {
+			size -= PAGE_SIZE;
+			end = mem_get_phy((void*)(addr + size -1));
+		}
+	} else {
+		while (start) {
+			addr += PAGE_SIZE;
+			start = mem_get_phy((void*)(addr));
+		}
+	}
+	if (start || end)
+		return NULL;
+
+	phy = addr - 0xD0000000;
+	if (map_mem_phy(phy+0xE0000000, size, addr, PG_UNCACHE))
+		return NULL;
+	return (void*)(phy + 0xD0000000);
+}
+void iounmap(void *vaddr)
+{
+	return;
+}
+#endif

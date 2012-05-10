@@ -8,6 +8,7 @@
 #include <smp_msg.h>
 #include <smp_fun.h>
 #include <pcpu.h>
+#include <thread.h>
 
 /* also called in start_secondary(void) */
 int per_cpu_init_0(void)
@@ -51,7 +52,13 @@ extern void uart_early_init(void);
 extern void param_init(void);
 extern void init_initcalls(void);
 extern int _call_main(int ac,char *av[]);
-int base_entry_fun(void)
+static int main_thread(void *data)
+{
+	return _call_main(0, NULL);
+}
+
+extern void cpu_idle_loop(void);
+void base_entry_fun(void)
 {
 	uart_early_init();
 	param_init();
@@ -61,19 +68,8 @@ int base_entry_fun(void)
 	irq_enable();
 	init_initcalls();
 
-	return _call_main(0, NULL);
-}
-
-void print_c0_regs(void)
-{
-	unsigned int status,cause,ebase,epc;
-	status = read_c0_status();
-	cause = read_c0_cause();
-	ebase = read_c0_ebase();
-	epc = read_c0_epc();
-
-	printk("status \t:%08x, cause\t:%08x\n",status,cause);
-	printk("ebase  \t:%08x, epc  \t:%08x\n",ebase,epc);
+	__thread_create(main_thread, NULL, "main", 0x1, 16*1024);
+	cpu_idle_loop();
 }
 
 void cpu_wait(void)
@@ -93,4 +89,3 @@ void cpu_wait(void)
 		"	.set reorder		\n"
 		:"=r"(tmp),"=r"(save):"r"(bits));
 }
-

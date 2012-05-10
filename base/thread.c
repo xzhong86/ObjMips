@@ -21,6 +21,7 @@ struct task {
 };
 struct task_list {
 	struct task *running, *sleep, *dead;
+	struct task *idle[CPU_NR];
 	spinlock_t list_lock;
 } task_list;
 
@@ -134,14 +135,20 @@ void thread_yield(void)
 
 	next = task_list.running;
 	if (!next) {
-		printk("No running thread to switch!\n");
+		next = task_list.idle[cpu];
+		task_list.idle[cpu] = NULL;
+	} else {
+		task_list.running = next->next;
+	}
+	if (!next) {
+		printk("No thread to switch!\n");
 		goto out;
 	}
-	task_list.running = next->next;
 
 	switch (cur->task.state) {
 	case THREAD_STATE_RUNNING: pp = &task_list.running; break;
 	case THREAD_STATE_SLEEP:   pp = &task_list.sleep; break;
+	case THREAD_STATE_IDLE:    pp = &task_list.idle[cpu]; break;
 	case THREAD_STATE_EXIT:
 	default:  pp = &task_list.dead; break;
 	}
@@ -251,6 +258,20 @@ int thread_wakeup(struct thread_task *thd)
 	return ret;
 }
 
+void cpu_idle_loop(void)
+{
+	struct thread_task *cur;
+
+	cur = current_thread(smp_cpu_id());
+	do {
+		if (!task_list.running)
+			cpu_wait();
+		else {
+			cur->state = THREAD_STATE_IDLE;
+			thread_yield();
+		}
+	} while(1);
+}
 
 #include <pcpu.h>
 int thread_init(void)
@@ -271,7 +292,7 @@ int thread_init(void)
 	strcat(t->task.name, "idle0");
 	t->task.name[4] += cpu;
 	t->task.tid = cpu;
-	t->task.cpumask = 1;
+	t->task.cpumask = 1 << cpu;
 	t->task.state = THREAD_STATE_RUNNING;
 	t->task.stack_size = __SMP_SIZE;
 	t->task.stack_top = PCPU_BASE(cpu) + __SMP_SIZE;

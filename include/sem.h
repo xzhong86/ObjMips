@@ -2,6 +2,7 @@
 #ifndef __SEM_H__
 #define __SEM_H__
 
+#include <thread.h>
 #include <spinlock.h>
 struct waitlist {
 	int down;

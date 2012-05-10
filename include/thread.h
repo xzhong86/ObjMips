@@ -14,6 +14,7 @@ struct thread_task {
 	enum {
 		THREAD_STATE_RUNNING,THREAD_STATE_SLEEP,
 		THREAD_STATE_EXIT,
+		THREAD_STATE_IDLE, /* special state for idle thread */
 	} state;
 	unsigned int cpumask;
 	unsigned int stack_size;

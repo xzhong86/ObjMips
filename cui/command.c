@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <base.h>
+#include <thread.h>
 #include <command.h>
 
 static struct __command_entity **cmds_tbl;
@@ -66,10 +67,27 @@ static struct __command_entity *find_cmd_by_name(const char *name)
 	}
 	return NULL;
 }
-int do_command(int argc,char *argv[])
+
+struct cmd_arg {
+	command_fun_t fun;
+	const char *name;
+	int argc;
+	char **argv;
+};
+static int cmd_thread(void *data)
+{
+	struct cmd_arg *cmd = data;
+	int ret;
+	ret = cmd->fun(cmd->argc, cmd->argv);
+	if (ret)
+		printk("command %s failed %d\n",cmd->name,ret);
+	free(cmd->argv);
+	free(cmd);
+	return ret;
+}
+int do_command(int argc,char **argv)
 {
 	struct __command_entity *cmd;
-	int ret = 0;
 
 	if (static_cmds == 0)
 		init_commands();
@@ -81,9 +99,21 @@ int do_command(int argc,char *argv[])
 	cmd = find_cmd_by_name(argv[0]);
 	if (cmd) {
 		if (cmd->fun) {
-			ret = cmd->fun(argc,argv);
-			if (ret)
-				printk("command %s failed %d\n",cmd->name,ret);
+			struct cmd_arg *carg = malloc(sizeof(*carg));
+			thread_t *thd;
+			char *last = argv[argc-1];
+			int bg = 0;
+			if (last[0] == '&' && last[1] == 0) {
+				bg = 1;
+				argv[--argc] = NULL;
+			}
+			carg->fun = cmd->fun;
+			carg->name = cmd->name;
+			carg->argc = argc;
+			carg->argv = argv;
+			thd = thread_create_name(cmd_thread, carg, argv[0]);
+			if (!bg)
+				thread_wait(thd);
 		} else {
 			printk("command %s has NULL fun\n",cmd->name);
 		}

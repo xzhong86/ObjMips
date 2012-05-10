@@ -164,6 +164,8 @@ static int get_cmdline(struct console *con,char *buf,int len)
 				fresh = 1;
 			}
 			break;
+		case '\003':
+			break;
 		default:
 			if (ch >= 32) {
 				insert_char(buf,n++,ch,p++);
@@ -172,7 +174,7 @@ static int get_cmdline(struct console *con,char *buf,int len)
 				else
 					fresh = 1;
 			} else {
-				printk("%c: %x %d\n",ch,ch,ch);
+				printk("unknown char: %x %d\n",ch,ch);
 			}
 			break;
 		}
@@ -184,30 +186,38 @@ static int get_cmdline(struct console *con,char *buf,int len)
 }
 
 
-static int build_arg(char buf[],int len,char **argv,int max)
+static char ** build_arg(char sbuf[],int len,int *argc)
 {
+	char **argv,*buf;
 	int i = 0, n = 0;
-	while (i < len && n < max) {
+
+	argv = malloc(sizeof(char*)*64 + 512);
+	buf = (char *)(argv + 64);
+	for (i = 0; i < len; i++)
+		buf[i] = sbuf[i];
+	i = 0;
+	while (i < len && n < 64-1) {
 		while(buf[i] == ' ' && i < len) i++;
 		argv[n++] = &buf[i];
 		while(buf[i] != ' ' && i < len) i++;
 		buf[i++] = 0;
 	}
-	return n;
+	argv[n] = NULL;
+	*argc = n;
+	return argv;
 }
 int cui_shell(void)
 {
 	struct console *con;
-	char buf[512];
-	char *argv[64];
+	char buf[512], **argv;
 
 	con = get_defconsole();
-	do_command(0,argv);
+	do_command(0, NULL);	/* init */
 	while (1) {
-		int len;
+		int len, argc;
 		len = get_cmdline(con,buf,512);
-		len = build_arg(buf,len,argv,64);
-		if (do_command(len,argv))
+		argv = build_arg(buf,len,&argc);
+		if (do_command(argc,argv))
 			break;
 	}
 	return 0;

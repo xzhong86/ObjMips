@@ -36,7 +36,7 @@ static inline int unregister_command(char *name)
 }
 #endif
 
-int do_command(int argc,char *argv[]);
+int do_command(int argc,char **argv);
 int complete_command(char *str);
 
 #define DEF_COMMAND(NAME,FUN,HELP)					\

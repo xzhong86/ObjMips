@@ -202,15 +202,15 @@ static int do_test(int argc,char *argv[])
 		tests_num = __test_entity_stop - __test_entity_start;
 	}
 
-	if (argc >= 2 && strcmp(argv[1],"all") == 0)
+	if (strcmp(argv[1],"all") == 0)
 		main_test_all();
-	else if (argc >= 2 && strcmp(argv[1],"special") == 0)
+	else if (strcmp(argv[1],"special") == 0)
 		test_special(tfuns, sizeof(tfuns)/sizeof(tfuns[0]));
-	else if (argc >= 2 && strcmp(argv[1],"show") == 0)
+	else if (strcmp(argv[1],"show") == 0)
 		show_all_test();
-	else if (argc >= 2 && strcmp(argv[1],"cache") == 0)
+	else if (strcmp(argv[1],"cache") == 0)
 		cache_probe();
-	else if (argc >= 3) {
+	else {
 		int loop;
 		struct test_entity *t;
 		t = get_test_by_name(argv[1]);
@@ -218,7 +218,9 @@ static int do_test(int argc,char *argv[])
 			printk("No such test %s\n",argv[1]);
 			return -1;
 		}
-		loop = strtoul(argv[2],NULL,10);
+		loop = 1;
+		if (argc > 2)
+			loop = strtoul(argv[2],NULL,10);
 		test_loop(argv[1],loop);
 	}
 	return 0;

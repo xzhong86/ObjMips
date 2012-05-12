@@ -24,8 +24,10 @@ thread_switch:
 	sw	s8, 10* 4(sp)
 	sw	sp, THREAD_SP(a0)
 
+	lw	a2, THREAD_FLAGS(a1)
 	lw	sp, THREAD_SP(a1)
 	move	HEAD_REG, a1
+	and	a2, _TIF_CREATE
 
 	bnez	a2, 1f
 	nop

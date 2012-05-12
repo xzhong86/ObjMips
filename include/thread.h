@@ -12,7 +12,6 @@ struct thread_task {
 	char name[THREAD_NAME_LEN];
 	unsigned int tid;
 
-#define THREAD_CREATE	0x1
 	unsigned long flags;
 	enum {
 		THREAD_STATE_RUNNING,THREAD_STATE_SLEEP,
@@ -24,7 +23,7 @@ struct thread_task {
 	unsigned int stack_top;
 	int exit_code;
 
-	struct thread_head *thread;
+	struct thread_head *head;
 	unsigned long cp0_epc, cp0_badvaddr;
 	unsigned long cp0_status, cp0_cause;
 
@@ -53,6 +52,12 @@ struct thread_head {
 
 #endif
 
+#define TIF_CREATE	0
+#define TIF_PENDING	1
+
+#define _TIF_CREATE	(1 << TIF_CREATE)
+#define _TIF_PENDING	(1 << TIF_PENDING)
+
 
 
 #ifndef __ASSEMBLY__
@@ -62,8 +67,18 @@ extern struct thread_task *__current_thread[CPU_MAX];
 
 /* we used k1 here, change it must take care. */
 register struct thread_head * __current_thread_head __asm__("$27");
-#define current_thread_head()  __current_thread_head
-#define current_thread(cpu)  (__current_thread_head->task)
+#define current_thread_head() __current_thread_head
+#define current_thread()  (__current_thread_head->task)
+
+#include <bitops.h>
+#define thread_test_flag(T,flg)	 test_bit((flg), &(T)->head->flags)
+#define thread_set_flag(T,flg)	 set_bit((flg), &(T)->head->flags)
+#define thread_clear_flag(T,flg) clear_bit((flg), &(T)->head->flags)
+
+#define thread_test_cur(flg)	 test_bit((flg), &__current_thread_head->flags)
+#define thread_set_cur(flg)	 set_bit((flg), &__current_thread_head->flags)
+#define thread_clear_cur(flg)	 clear_bit((flg), &__current_thread_head->flags)
+
 
 struct thread_task * 
 __thread_create(thread_fun_t fun, void *data, const char *name, 

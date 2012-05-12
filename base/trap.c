@@ -13,7 +13,7 @@ static void show_stack(struct cpu_regs *reg);
 
 static void seg_fault(int read, struct cpu_regs *reg, char *msg)
 {
-	thread_t *thd = current_thread(smp_cpu_id());
+	thread_t *thd = current_thread();
 	printk("%s, %s at 0x%lx, epc: %08lx\n", msg
 	       ,read?"read":"write", reg->cp0_badvaddr, reg->cp0_epc);
 	printk("current thread [%s](%d).\n",thd->name,thd->tid);

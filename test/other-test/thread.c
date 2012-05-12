@@ -16,7 +16,7 @@ static int thread(void *d)
 }
 static int bad_addr(void *d)
 {
-	thread_t *cur = current_thread(smp_cpu_id());
+	thread_t *cur = current_thread();
 	printk("tid %d %s acc 0x4\n", cur->tid, cur->name);
 	*(volatile int *)0x4;
 	return 0;

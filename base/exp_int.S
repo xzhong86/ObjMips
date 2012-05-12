@@ -2,8 +2,8 @@
 #include <mips.h>
 #include <thread.h>
 
-#define  SAVE(n) sw	$##n,n*4(sp)
-#define  LOAD(n) lw	$##n,n*4(sp)
+#define  SAVE(n) sw	$##n,n*4(k0)
+#define  LOAD(n) lw	$##n,n*4(k0)
 
 	.macro	setup_c0_status set clr
 	.set	push
@@ -39,13 +39,12 @@ _exp_int:
 	/* user mode, load kernel sp, save user sp */
 	lw	k0, THREAD_SP(HEAD_REG)
 	subu	k0, k0, 32*4 + 16
-	sw	sp, 29*4(k0)
 	b 	2f
-	move	sp, k0
+	sw	sp, 32*4(k0)
 
 1:	/* kernel mode, save zero at sp */
-	subu	sp, sp, 32*4 + 16
-	sw	zero, 29*4(sp)
+	subu	k0, sp, 32*4 + 16
+	sw	zero, 32*4(k0)
 
 2:	
 	SAVE(1)
@@ -74,17 +73,19 @@ _exp_int:
 	SAVE(24)
 	SAVE(25)
 	SAVE(28)
+	SAVE(29)
 	SAVE(30)
 	SAVE(31)
 
 	mfc0	a1, C0_SR
-	move	a0, sp
-	subu	sp, sp, 4*4
+	move	a0, k0
+	subu	sp, k0, 4*4
 	clear_exl_ie
 	jal trap_entry
 	nop
 /*	set_exl_ie */
-	addu	sp, sp, 4*4
+	addu	k0, sp, 4*4
+	move	sp, k0
 	
 	LOAD(1)
 	LOAD(2)
@@ -114,7 +115,7 @@ _exp_int:
 	LOAD(28)
 	LOAD(30)
 	LOAD(31)
-	lw	k0, 29*4(sp)
+	lw	k0, 32*4(sp)
 	addu	sp, sp, 32*4 + 16
 	movn	sp, k0, k0
 

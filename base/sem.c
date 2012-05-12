@@ -50,7 +50,7 @@ int sem_down(sem_t *sem, int down)
 	local_irq_save(&flags);
 	spinlock_lock(sem->lock);
 
-	cur = current_thread(smp_cpu_id());
+	cur = current_thread();
 	if (sem->val < down) {
 		struct waitlist **wp;
 		for (wp = &sem->wait; *wp; wp = &(*wp)->next) ;

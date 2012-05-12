@@ -32,7 +32,7 @@ __thread_create(thread_fun_t fun, void *data, const char *name,
 {
 	int flags, nrpg;
 	unsigned long vaddr;
-	struct thread_head *thread;
+	struct thread_head *head;
 	struct task *t;
 
 	if (stack_size) {
@@ -57,13 +57,13 @@ __thread_create(thread_fun_t fun, void *data, const char *name,
 	sem_init(&t->exit, 0);
 
 	vaddr = PHYS_TO_K0(mem_page2phy(t->page));
-	thread = (struct thread_head*)vaddr;
+	head = (struct thread_head*)vaddr;
 
-	t->task.thread = thread;
-	thread->task = &t->task;
-	thread->pgd  = current_thread_head()->pgd;
-	thread->flags = 0;
-	thread->saved_sp = vaddr + stack_size - 16;
+	t->task.head = head;
+	head->task = &t->task;
+	head->pgd  = current_thread_head()->pgd;
+	head->flags = _TIF_CREATE;
+	head->saved_sp = vaddr + stack_size - 16;
 
 	if (!name)
 		name = "noname";
@@ -76,7 +76,7 @@ __thread_create(thread_fun_t fun, void *data, const char *name,
 	t->task.cpumask = cpumask;
 	t->task.fun = fun;
 	t->task.data = data;
-	t->task.flags |= THREAD_CREATE;
+	t->task.flags = 0;
 	t->task.state = THREAD_STATE_RUNNING;
 	t->next = NULL;
 
@@ -119,8 +119,7 @@ static void clean_thread(thread_t *thd)
 	local_irq_restore(&flags);
 }
 
-extern void thread_switch(struct thread_head *cur,struct thread_head *next,
-			  int create);
+extern void thread_switch(struct thread_head *cur,struct thread_head *next);
 void thread_yield(void)
 {
 	int flags, cpu;
@@ -131,7 +130,7 @@ void thread_yield(void)
 	spinlock_lock(task_list.list_lock);
 
 	cpu = smp_cpu_id();
-	cur = container_of(current_thread(cpu), struct task, task);
+	cur = container_of(current_thread(), struct task, task);
 
 	next = task_list.running;
 	if (!next) {
@@ -161,13 +160,12 @@ void thread_yield(void)
 	cur->task.cp0_epc    = read_c0_epc();
 
 	__current_thread[cpu] = &next->task;
-	thread_switch(cur->task.thread, next->task.thread,
-		      next->task.flags & THREAD_CREATE);
+	thread_switch(cur->task.head, next->task.head);
 
 	cpu = smp_cpu_id();
-	write_c0_status(current_thread(cpu)->cp0_status);
-	write_c0_cause(current_thread(cpu)->cp0_cause);
-	write_c0_epc(current_thread(cpu)->cp0_epc);
+	write_c0_status(current_thread()->cp0_status);
+	write_c0_cause(current_thread()->cp0_cause);
+	write_c0_epc(current_thread()->cp0_epc);
 
 out:
 	spinlock_unlock(task_list.list_lock);
@@ -178,7 +176,7 @@ void thread_exit(int err)
 	struct thread_task *cur;
 	struct task *t;
 
-	cur = current_thread(smp_cpu_id());
+	cur = current_thread();
 	cur->exit_code = err;
 	cur->state = THREAD_STATE_EXIT;
 	if (err)
@@ -200,8 +198,8 @@ void new_thread_init(void)
 	struct thread_task *cur;
 	int ret;
 
-	cur = current_thread(smp_cpu_id());
-	cur->flags &= ~THREAD_CREATE;
+	cur = current_thread();
+	thread_clear_cur(TIF_CREATE);
 
 	write_c0_status(cur->cp0_status);
 	write_c0_cause(cur->cp0_cause);
@@ -262,7 +260,7 @@ void cpu_idle_loop(void)
 {
 	struct thread_task *cur;
 
-	cur = current_thread(smp_cpu_id());
+	cur = current_thread();
 	do {
 		if (!task_list.running)
 			cpu_wait();
@@ -287,7 +285,7 @@ int thread_init(void)
 	memset(t, 0, sizeof(*t));
 	memset(head, 0, sizeof(*head));
 
-	t->task.thread = head;
+	t->task.head = head;
 	head->task = &t->task;
 
 	head->pgd = current_pgd[cpu];

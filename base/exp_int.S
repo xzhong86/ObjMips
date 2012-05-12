@@ -1,5 +1,6 @@
 #include <sys/regdef.h>
 #include <mips.h>
+#include <thread.h>
 
 #define  SAVE(n) sw	$##n,n*4(sp)
 #define  LOAD(n) lw	$##n,n*4(sp)
@@ -32,7 +33,21 @@
 _exp_int:
 	.set	noreorder
 	.set	noat
+	bltz	sp, 1f
+	nop
+
+	/* user mode, load kernel sp, save user sp */
+	lw	k0, THREAD_SP(HEAD_REG)
+	subu	k0, k0, 32*4 + 16
+	sw	sp, 29*4(k0)
+	b 	2f
+	move	sp, k0
+
+1:	/* kernel mode, save zero at sp */
 	subu	sp, sp, 32*4 + 16
+	sw	zero, 29*4(sp)
+
+2:	
 	SAVE(1)
 	SAVE(2)
 	SAVE(3)
@@ -59,7 +74,6 @@ _exp_int:
 	SAVE(24)
 	SAVE(25)
 	SAVE(28)
-	/* SAVE(29) do NOT save SP */
 	SAVE(30)
 	SAVE(31)
 
@@ -98,9 +112,12 @@ _exp_int:
 	LOAD(24)
 	LOAD(25)
 	LOAD(28)
-	/* LOAD(29) do NOT restore SP */
 	LOAD(30)
 	LOAD(31)
+	lw	k0, 29*4(sp)
 	addu	sp, sp, 32*4 + 16
+	movn	sp, k0, k0
+
+	nop
 	eret
 	.end	_exp_int

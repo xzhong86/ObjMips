@@ -60,7 +60,8 @@ struct thread_head {
 #include <smp.h>
 extern struct thread_task *__current_thread[CPU_MAX];
 
-register struct thread_head * __current_thread_head __asm__("$27"); /* k1 */
+/* we used k1 here, change it must take care. */
+register struct thread_head * __current_thread_head __asm__("$27");
 #define current_thread_head()  __current_thread_head
 #define current_thread(cpu)  (__current_thread_head->task)
 

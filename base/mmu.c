@@ -30,7 +30,7 @@ struct pgd {
 	struct pte *ptes[PTRS_PER_PGD];
 };
 static struct pgd *kernel_pgd;
-struct pgd *current_pgd[CPU_NR];
+struct pgd *current_pgd[CPU_MAX];
 
 static int tlb_entry_num;
 
@@ -281,15 +281,20 @@ struct page * find_page_addr(unsigned long vaddr)
 int mmu_init(void)
 {
 	unsigned long config;
+	int i;
 
 	kernel_pgd = malloc(sizeof(struct pgd));
 	memset(kernel_pgd, 0, sizeof(struct pgd));
-	current_pgd[0] = kernel_pgd;
-	current_pgd[1] = kernel_pgd;
+
+	for (i = 0; i < CPU_MAX; i++)
+		current_pgd[i] = kernel_pgd;
+
 	config = __read_32bit_c0_register($16, 1);
 	tlb_entry_num = (config >> 25) % 64 + 1;
+
 	flush_tlb_entry();
 	__write_32bit_c0_register($5, 4, 0xa9000000);
+
 	printk("MMU: TLB Entries %d\n",tlb_entry_num);
 	return 0;
 }

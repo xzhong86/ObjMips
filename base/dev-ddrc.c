@@ -96,7 +96,7 @@ static int ddrc_remap(void)
 
 #define REG(addr)	(*(volatile unsigned *)(addr))
 	ahb0 = REG(0xB3000000) | (1 << 31);
-	//ahb1 = REG(0xB3200000) | (1 << 15);
+	ahb1 = REG(0xB3200000) | (1 << 15);
 	ahb2 = REG(0xB3400000) | (1 << 31);
 
 	printk("%x %x %x %x\n",mmap0_reg,mmap1_reg,ahb0,ahb2);
@@ -106,7 +106,7 @@ static int ddrc_remap(void)
 	REG32(DDRC_MMAP0) = mmap0_reg;
 	REG32(DDRC_MMAP1) = mmap1_reg;
 	REG(0xB3400000) = ahb2;
-	//REG(0xB3200000) = ahb1;
+	REG(0xB3200000) = ahb1;
 	REG(0xB3000000) = ahb0;
 
 	return 0;

@@ -4,12 +4,9 @@
 
 #include <console.h>
 
-#define	UART0_BASE	0xB0030000
-#define	UART1_BASE	0xB0031000
-#define	UART2_BASE	0xB0032000
-#define	UART3_BASE	0xB0033000
-#define UART_BASE	UART0_BASE
+#define UART_BASE	0xB0030000
 #define UART_OFF	0x1000
+#define UART_NUM	4
 
 #define OFF_RDR	(0x00)
 #define OFF_TDR	(0x00)
@@ -34,6 +31,9 @@
 #define DEV_REG_BASE	uart_base
 
 static volatile u8 *uart_base;
+static int uart_no;
+static short uart_irqs[UART_NUM] = { 13, 12, 11, 10 };
+//static short uart_irqs[UART_NUM] = { 59, 58, 57, 56 };
 
 /* check which port used. */
 static void uart_chk(void)
@@ -50,10 +50,13 @@ static void uart_chk(void)
 		if (uart[OFF_LCR]) 
 			break;
 	}
-	if (p == 4)
-		uart_base = (u8*)(UART2_BASE);
-	else
+	if (p == 4) {
+		uart_base = (u8*)(UART_BASE + 2 * UART_OFF);
+		uart_no = 2;
+	} else {
 		uart_base = uart;
+		uart_no = p;
+	}
 }
 static int uart_tstc (void)
 {
@@ -137,7 +140,8 @@ static int fifo_init(void)
 	REG8(OFF_IER) = IER_RDR;
 	REG8(OFF_FCR) = 0x17;
 
-	register_irqfun(3+8, fifo_interrput,"UART fifo",&fifo_console);
+	register_irqfun(uart_irqs[uart_no], fifo_interrput,
+			"UART fifo",&fifo_console);
 	return 0;
 }
 static int fifo_getc(void)
@@ -180,7 +184,7 @@ static struct console fifo_console = {
 };
 int uart_init (void)
 {
-	int ret;
+	int ret = -1;
 
 	printk("serial to fifo.\n");
 	ret = fifo_init();

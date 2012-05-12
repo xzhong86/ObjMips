@@ -1,8 +1,8 @@
 #include <sys/regdef.h>
 #include <mips.h>
 
-#define  SAVE(n) sw	$##n,n*4(k1)
-#define  LOAD(n) lw	$##n,n*4(k1)
+#define  SAVE(n) sw	$##n,n*4(sp)
+#define  LOAD(n) lw	$##n,n*4(sp)
 
 	.macro	setup_c0_status set clr
 	.set	push
@@ -32,7 +32,7 @@
 _exp_int:
 	.set	noreorder
 	.set	noat
-	subu	k1,sp,32*4 + 16
+	subu	sp, sp, 32*4 + 16
 	SAVE(1)
 	SAVE(2)
 	SAVE(3)
@@ -59,18 +59,18 @@ _exp_int:
 	SAVE(24)
 	SAVE(25)
 	SAVE(28)
-	SAVE(29) /* save SP */
+	/* SAVE(29) do NOT save SP */
 	SAVE(30)
 	SAVE(31)
 
 	mfc0	a1, C0_SR
-	move	a0, k1
-	subu	sp,k1,4*4
+	move	a0, sp
+	subu	sp, sp, 4*4
 	clear_exl_ie
 	jal trap_entry
 	nop
 /*	set_exl_ie */
-	addu	k1,sp,4*4
+	addu	sp, sp, 4*4
 	
 	LOAD(1)
 	LOAD(2)
@@ -98,8 +98,9 @@ _exp_int:
 	LOAD(24)
 	LOAD(25)
 	LOAD(28)
-	LOAD(29) /* restore SP */
+	/* LOAD(29) do NOT restore SP */
 	LOAD(30)
 	LOAD(31)
+	addu	sp, sp, 32*4 + 16
 	eret
 	.end	_exp_int

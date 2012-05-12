@@ -10,7 +10,7 @@ struct lock_cnt {
 };
 static struct lock_cnt *lcnts;
 static int lcnts_num;
-static int lcnts_step[CPU_NR];
+static int lcnts_step[CPU_MAX];
 #define ADD_TIMES 2
 
 static void print_error_lcnt(struct lock_cnt *lcnt)

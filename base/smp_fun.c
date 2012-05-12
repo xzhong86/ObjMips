@@ -75,7 +75,7 @@ void smp_fun_wait(int cpumask)
 
 wait:
 	wait = 0;
-	for (i = 0; i < CPU_NR; i++) {
+	for (i = 0; i < CPU_MAX; i++) {
 		if((cpumask & (1<<i)) && test_bit(i, &fun_busy))
 			wait ++;
 	}

@@ -1,5 +1,6 @@
 #include <sys/regdef.h>
 #include <mips.h>
+#include <thread.h>
 
 	.text
 	.align	2
@@ -10,13 +11,10 @@
 _tlb_miss:
 	.set	noreorder
 	.set	noat
-	mfc0	k0, C0_EBASE
-	lui	k1, %hi(current_pgd)
-	and	k0, k0, 0x3ff
-	addiu	k1, %lo(current_pgd)
-	sll	k0, k0, 2
-	addu	k1, k0
-	lw	k1, 0(k1)	/* struct pgd addr */
+	sw	fp, 0(HEAD_REG)
+	move	fp, HEAD_REG 
+
+	lw	k1, THREAD_PGD(fp) /* struct pgd addr */
 	beqz	k1, badtlb
 	nop
 
@@ -44,6 +42,9 @@ writetlb:
 	nop
 	sll	$0, $0, 3	/* ehb */
 	tlbwr
+	nop
+	move	HEAD_REG, fp	/* restore head */
+	lw	fp, 0(fp)
 	nop
 	eret
 	nop

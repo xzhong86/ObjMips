@@ -10,7 +10,7 @@
 #include <thread.h>
 #include <sem.h>
 
-struct thread_task *__current_thread[CPU_NR];
+struct thread_task *__current_thread[CPU_MAX];
 
 struct task {
 	struct thread_task task;
@@ -21,11 +21,11 @@ struct task {
 };
 struct task_list {
 	struct task *running, *sleep, *dead;
-	struct task *idle[CPU_NR];
+	struct task *idle[CPU_MAX];
 	spinlock_t list_lock;
 } task_list;
 
-static unsigned int thread_id = CPU_NR;
+static unsigned int thread_id = CPU_MAX;
 struct thread_task * 
 __thread_create(thread_fun_t fun, void *data, const char *name,
 		unsigned cpumask, int stack_size)
@@ -61,7 +61,7 @@ __thread_create(thread_fun_t fun, void *data, const char *name,
 
 	t->task.thread = thread;
 	thread->task = &t->task;
-	thread->regs = NULL;
+	thread->pgd  = current_thread_head()->pgd;
 	thread->flags = 0;
 	thread->saved_sp = vaddr + stack_size - 16;
 
@@ -183,7 +183,7 @@ void thread_exit(int err)
 	cur->state = THREAD_STATE_EXIT;
 	if (err)
 		printk("thread %s exit %d.\n", cur->name, err);
-	if (cur->tid < CPU_NR) {
+	if (cur->tid < CPU_MAX) {
 		printk("thread %s(%d) should NOT exit.\n", 
 		       cur->name, cur->tid);
 		return;
@@ -274,6 +274,7 @@ void cpu_idle_loop(void)
 }
 
 #include <pcpu.h>
+extern struct pgd *current_pgd[CPU_MAX];
 int thread_init(void)
 {
 	struct task *t;
@@ -289,6 +290,8 @@ int thread_init(void)
 	t->task.thread = head;
 	head->task = &t->task;
 
+	head->pgd = current_pgd[cpu];
+
 	strcat(t->task.name, "idle0");
 	t->task.name[4] += cpu;
 	t->task.tid = cpu;
@@ -298,5 +301,6 @@ int thread_init(void)
 	t->task.stack_top = PCPU_BASE(cpu) + __SMP_SIZE;
 
 	__current_thread[cpu] = &t->task;
+	__current_thread_head = head;
 	return 0;
 }

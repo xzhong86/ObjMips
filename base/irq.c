@@ -24,7 +24,7 @@ struct irq_isr {
 	const char *name;
 };
 static struct irq_isr isrs[IRQ_NR];
-static unsigned int irqs[CPU_NR][IRQ_NR];
+static unsigned int irqs[CPU_MAX][IRQ_NR];
 static int bad_irqs;
 
 extern int intc_mask(int int_no);
@@ -47,15 +47,17 @@ void irq_entry(struct cpu_regs *reg)
 		irqs[cpu][irq] ++;
 	}
 	else if (cs & 0x400) {
-		irq = get_irq();
-		if (isrs[irq].fun) 
-			(isrs[irq].fun)(irq, isrs[irq].data);
-		else {
-			intc_mask(irq - IRQ_INTC_BASE);
-			bad_irqs ++;
-		}
-		irqs[cpu][irq] ++;
-		//irqs[cpu][2] ++;
+		do {
+			irq = get_irq();
+			if (isrs[irq].fun) 
+				(isrs[irq].fun)(irq, isrs[irq].data);
+			else {
+				intc_mask(irq - IRQ_INTC_BASE);
+				bad_irqs ++;
+			}
+			irqs[cpu][irq] ++;
+			irq = get_irq();
+		} while (irq);
 	}
 	else if (cs & 0x100) {
 		irq = 0;
@@ -80,7 +82,7 @@ void irq_entry(struct cpu_regs *reg)
 static int get_irq(void)
 {
 	int no = intc_get_no();
-	if (no)
+	if (no >= 0)
 		return no + IRQ_INTC_BASE;
 	else
 		return 0;

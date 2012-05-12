@@ -15,7 +15,7 @@ struct datablk {
 };
 #define DATA_BLK_NUM 6
 struct datablk *datas;
-static int work_step[CPU_NR];
+static int work_step[CPU_MAX];
 #define ADD_TIMES 64
 
 static int set_start,set_end;

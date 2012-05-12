@@ -14,7 +14,7 @@ struct datablk {
 };
 #define DATA_BLK_NUM 5
 struct datablk *datas;
-static int work_step[CPU_NR];
+static int work_step[CPU_MAX];
 #define ADD_TIMES 512
 
 static void print_err_data(struct datablk *d,unsigned *p,int i)

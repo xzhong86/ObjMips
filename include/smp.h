@@ -9,7 +9,7 @@
 
 #include <mipsop.h>
 
-#define CPU_NR 4
+#define CPU_MAX 4
 #define smp_cpu_id()  (read_c0_ebase() & 0x3ff)
 extern int setup_smp(void);
 extern int setup_ipi(void);
@@ -24,7 +24,7 @@ extern int smp_running_cpus;
 
 #else  // !CONFIG_SMP
 
-#define CPU_NR 1
+#define CPU_MAX 1
 #define smp_cpu_id() (0)
 #define setup_smp()  do { } while(0)
 #define setup_ipi()  do { } while(0)

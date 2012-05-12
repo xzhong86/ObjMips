@@ -2,7 +2,7 @@
 #include <linux/atomic.h>
 #include <string.h>
 
-static atomic_t counters[CPU_NR];
+static atomic_t counters[CPU_MAX];
 static atomic_t start;
 
 static void atomic_loop_sync(int cpu)
@@ -13,7 +13,7 @@ static void atomic_loop_sync(int cpu)
 	while (*(volatile int*)&start.counter != CPUS) ;
 	for(i=0; i<TIMES*LOOPS; i++) {
 		atomic_add(1, &counters[cpu]);
-		tmp = counters[i%CPU_NR].counter;
+		tmp = counters[i%CPU_MAX].counter;
 	}
 }
 static void fun_slave(void)

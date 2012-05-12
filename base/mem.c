@@ -73,7 +73,7 @@ int mem_init(void)
 	printk("Memory size: %ldMB, %ldMB low, %ldMB high.\n",
 	       mem_size>>20, low>>20, high>>20);
 
-	reserved = PCPU_BASE(CPU_NR);
+	reserved = PCPU_BASE(CPU_MAX);
 	page_table = (struct page*)ALIGN_TO(reserved, MByte);
 	if (jzsoc_mem_remapped)
 		/* 1M pages, 4G memory space in remap mode */

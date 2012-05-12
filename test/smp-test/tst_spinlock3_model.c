@@ -13,7 +13,7 @@ struct lock_cnt {
 	int counter[COUNTER_NUM];
 };
 static struct lock_cnt *lcnts;
-static int lcnts_step[CPU_NR];
+static int lcnts_step[CPU_MAX];
 #ifndef ALWAYS_CACHE
 static int attr[COUNTER_NUM] = CNT_ATTR;
 #endif

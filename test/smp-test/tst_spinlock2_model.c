@@ -8,7 +8,7 @@ struct lock_cnt {
 	int counter[COUNTER_NUM];
 };
 static struct lock_cnt *lcnts;
-static int lcnts_step[CPU_NR];
+static int lcnts_step[CPU_MAX];
 
 static void print_error_lcnt(struct lock_cnt *lcnt, int cnt)
 {

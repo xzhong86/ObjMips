@@ -46,7 +46,7 @@ int intc_get_no(void)
 		return fls(sr0) -1;
 	if (sr1) 
 		return fls(sr1) -1 + 32;
-	return 0;
+	return -1;
 }
 
 /* for tst_irq() */

@@ -1,6 +1,6 @@
 #include <sys/regdef.h>
 #include <mips.h>
-
+#include <thread.h>
 
 	.text
 	.align	2
@@ -22,9 +22,10 @@ thread_switch:
 	sw	gp, 8 * 4(sp)
 	sw	ra, 9 * 4(sp)
 	sw	s8, 10* 4(sp)
-	sw	sp, 12(a0)
+	sw	sp, THREAD_SP(a0)
 
-	lw	sp, 12(a1)
+	lw	sp, THREAD_SP(a1)
+	move	HEAD_REG, a1
 
 	bnez	a2, 1f
 	nop

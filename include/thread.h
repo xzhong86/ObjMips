@@ -2,6 +2,9 @@
 #ifndef __THREAD_H__
 #define __THREAD_H__
 
+
+#ifndef __ASSEMBLY__
+
 typedef int (*thread_fun_t)(void *);
 struct thread_head;
 struct thread_task {
@@ -30,17 +33,36 @@ struct thread_task {
 };
 typedef struct thread_task thread_t;
 
+struct pgd;
+/* this struction may be accessed in assembler */
 struct thread_head {
-	struct thread_task	*task;	/* thread structure */
-	struct pt_regs		*regs;
+	unsigned long pad[2];	/* used in asm */
 	unsigned long flags;
 	unsigned long saved_sp;
+	struct pgd *pgd;		/* used in tlb miss */
+	struct thread_task	*task;	/* thread structure */
 };
+#else
+/* Only used in assembler */
+#define HEAD_REG	k1
+#define THREAD_PAD0	0
+#define THREAD_PAD1	4
+#define THREAD_FLAGS	8
+#define THREAD_SP	12
+#define THREAD_PGD	16
+
+#endif
+
+
+
+#ifndef __ASSEMBLY__
 
 #include <smp.h>
-extern struct thread_task *__current_thread[CPU_NR];
-#define current_thread(cpu)  (__current_thread[(cpu)])
-#define current_thread_head()  (current_thread(smp_cpu_id())->thread)
+extern struct thread_task *__current_thread[CPU_MAX];
+
+register struct thread_head * __current_thread_head __asm__("$27"); /* k1 */
+#define current_thread_head()  __current_thread_head
+#define current_thread(cpu)  (__current_thread_head->task)
 
 struct thread_task * 
 __thread_create(thread_fun_t fun, void *data, const char *name, 
@@ -62,5 +84,6 @@ int thread_wakeup(struct thread_task *);
 /* special exit for thread */
 void thread_exit(int);
 
+#endif
 
 #endif

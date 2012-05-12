@@ -173,7 +173,7 @@ _start_secondary:
 	nop
 
 	li	v0, 3
-	sw	v0, 0($26)
+	sw	v0, 0(k0)
 
 #if 1
 	/* Init cache */
@@ -216,10 +216,10 @@ _start_secondary:
 	mtc0	zero, C0_CAUSE
 	
 	li	v0, 4
-	sw	v0, 0($26)
+	sw	v0, 0(k0)
 #if 0
 1:	li	v0, 7
-	sw	v0, 0($26)
+	sw	v0, 0(k0)
 	b	1b
 	nop
 #endif

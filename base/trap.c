@@ -20,7 +20,7 @@ static void seg_fault(int read, struct cpu_regs *reg, char *msg)
 	show_regs(reg);
 	show_code(reg);
 	show_stack(reg);
-	if (thd->tid >= CPU_NR) {
+	if (thd->tid >= CPU_MAX) {
 		thread_exit(-1);
 	}
 	while(1) {

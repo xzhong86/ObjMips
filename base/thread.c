@@ -74,11 +74,24 @@ __thread_create(thread_fun_t fun, void *data, const char *name,
 	t->task.stack_size = stack_size;
 	t->task.stack_top = vaddr + stack_size;
 	t->task.cpumask = cpumask;
+	t->task.cp0_status = read_c0_status();
 	t->task.fun = fun;
 	t->task.data = data;
 	t->task.flags = 0;
 	t->task.state = THREAD_STATE_RUNNING;
-	t->next = NULL;
+
+	signal_setup(&t->task);
+	{			/* relationship */
+		thread_t **pp, *cur,*leader;
+		cur = current_thread();
+		t->task.father = cur;
+		for (pp = &cur->child; *pp; pp = &(*pp)->brother) ;
+		*pp = &t->task;
+		t->task.group.leader = cur->group.leader;
+		leader = cur->group.leader;
+		for (pp = &leader->group.next; *pp; pp = &(*pp)->group.next) ;
+		*pp = &t->task;
+	}
 
 	local_irq_save(&flags);
 	spinlock_lock(task_list.list_lock);
@@ -95,12 +108,32 @@ __thread_create(thread_fun_t fun, void *data, const char *name,
 static void __clean_dead(struct task_list *tl, thread_t *thd)
 {
 	struct task **pp;
+	{			/* relationship */
+		thread_t **pp, *p, *t;
+		t = thd->father;
+		for (pp = &t->child; *pp; pp = &(*pp)->brother)
+			if (*pp == thd)
+				break;
+		if (!thd->child) {
+			*pp = thd->brother;
+		} else {
+			*pp = thd->child;
+			for (p = thd->child; p->brother; p = p->brother);
+			p->brother = thd->brother;
+		}
+		t = thd->group.leader;
+		for (pp = &t->group.next; *pp; pp = &(*pp)->group.next)
+			if (*pp == thd)
+				break;
+		*pp = thd->group.next;
+	}
 	for (pp = &tl->dead; *pp; pp = &(*pp)->next) {
 		struct task *t;
 		if (&(*pp)->task != thd)
 			continue;
 		t = *pp;
 		*pp = t->next;
+		sem_free(&t->exit);
 		mem_free_pages(t->page, t->nr_page);
 		free(t);
 		break;
@@ -126,6 +159,10 @@ void thread_yield(void)
 	struct task *cur, *next;
 	struct task **pp;
 
+	if (thread_test_cur(TIF_PENDING))
+		do_signal();
+
+reschedule:
 	local_irq_save(&flags);
 	spinlock_lock(task_list.list_lock);
 
@@ -170,6 +207,11 @@ void thread_yield(void)
 out:
 	spinlock_unlock(task_list.list_lock);
 	local_irq_restore(&flags);
+
+	if (thread_test_cur(TIF_PENDING))
+		do_signal();
+	if (thread_test_cur(TIF_RESCHED))
+		goto reschedule;
 }
 void thread_exit(int err)
 {
@@ -187,8 +229,8 @@ void thread_exit(int err)
 		return;
 	}
 	t = container_of(cur, struct task, task);
+	signal_release(cur);
 	sem_up(&t->exit, 0);
-	sem_free(&t->exit);
 	thread_yield();
 
 	*(volatile int*)1;		/* BUG */
@@ -212,6 +254,33 @@ void new_thread_init(void)
 
 	thread_exit(ret);
 }
+void thread_new_group(thread_t *thd)
+{
+	thread_t **pp, *leader;
+	leader = thd->group.leader;
+	for (pp = &leader->group.next; *pp; pp = &(*pp)->group.next) 
+		if (*pp == thd)
+			break;
+	*pp = thd->group.next;
+	thd->group.leader = thd;
+	thd->group.next = NULL;
+}
+void thread_exit_group(int err)
+{
+	thread_t *p, *leader;
+	leader = current_thread()->group.leader;
+	if (leader != current_thread()) {
+		signal_send(leader, SIGTERM);
+		thread_wakeup(leader);
+		thread_exit(-SIGEXIT);
+		return;
+	}
+	for (p = leader->group.next; p; p = p->group.next)
+		signal_send(p, SIGEXIT);
+	for (p = leader->group.next; p; p = p->group.next)
+		thread_wait(p);
+	thread_exit(err);
+}
 
 int thread_wait(struct thread_task *thd)
 {
@@ -219,7 +288,8 @@ int thread_wait(struct thread_task *thd)
 	struct task *waitt;
 
 	waitt = container_of(thd, struct task, task);
-	sem_down(&waitt->exit, 1);
+	if (thd->state != THREAD_STATE_EXIT)
+		sem_down(&waitt->exit, 1);
 
 	ret = thd->exit_code;
 	clean_thread(thd);
@@ -237,6 +307,10 @@ int thread_wakeup(struct thread_task *thd)
 	for (pp = &task_list.sleep; *pp; pp = &(*pp)->next)
 		if (&(*pp)->task == thd)
 			break;
+	if (!*pp)
+		for (pp = &task_list.running; *pp; pp = &(*pp)->next)
+			if (&(*pp)->task == thd)
+				break;
 	if (*pp) {
 		t = *pp;
 		*pp = t->next;
@@ -297,6 +371,8 @@ int thread_init(void)
 	t->task.state = THREAD_STATE_RUNNING;
 	t->task.stack_size = __SMP_SIZE;
 	t->task.stack_top = PCPU_BASE(cpu) + __SMP_SIZE;
+	t->task.signal.mask = -1;
+	t->task.group.leader = &t->task;
 
 	__current_thread[cpu] = &t->task;
 	__current_thread_head = head;

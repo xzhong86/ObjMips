@@ -7,6 +7,7 @@
 #include <string.h>
 #include <base.h>
 #include <console.h>
+#include <signal.h>
 #include <command.h>
 
 enum vtctl {
@@ -211,6 +212,8 @@ int cui_shell(void)
 	struct console *con;
 	char buf[512], **argv;
 
+	signal_mask(SIGTERM);
+	signal_mask(SIGEXIT);
 	con = get_defconsole();
 	do_command(0, NULL);	/* init */
 	while (1) {

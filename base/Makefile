@@ -6,7 +6,7 @@ obj-y   += smp_msg.o smp_fun.o
 obj-y   += pmon.o sys.o cmain.o init.o
 obj-y	+= mem.o ktime.o
 
-obj-y 	+= switch.o thread.o sem.o
+obj-y 	+= switch.o thread.o sem.o signal.o
 
 obj-y 	+= console.o
 

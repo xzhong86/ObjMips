@@ -113,6 +113,10 @@ void trap_entry(unsigned long *regs, unsigned int status)
 	reg.cp0_epc = epc;
 
 trap_end:
+	if (thread_test_cur(TIF_PENDING))
+		do_signal();
+	if (thread_test_cur(TIF_RESCHED))
+		thread_yield();
 	write_c0_status(reg.cp0_status);
 	write_c0_epc(reg.cp0_epc);
 	return;

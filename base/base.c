@@ -54,6 +54,7 @@ extern void init_initcalls(void);
 extern int _call_main(int ac,char *av[]);
 static int main_thread(void *data)
 {
+	thread_new_group(current_thread());
 	return _call_main(0, NULL);
 }
 

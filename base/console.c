@@ -5,6 +5,7 @@
 #include <spinlock.h>
 #include <sem.h>
 #include <mem.h>
+#include <thread.h>
 #include <console.h>
 
 static struct console *fifo_console;
@@ -24,6 +25,11 @@ static void rx_char(struct console *con, char ch)
 {
 	struct qbuf *qb = &buffer.rx;
 	int ed = qb->ed + 1;
+
+	if (ch == '\003') {
+		signal_send(current_thread(), SIGTERM);
+		return;
+	}
 	if (ed == RX_BUF_LEN)
 		ed = 0;
 	if (ed != qb->st) {

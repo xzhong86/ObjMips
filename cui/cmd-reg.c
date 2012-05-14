@@ -28,6 +28,11 @@ static int do_reg(int argc,char *argv[])
 		if (not) val = ~val;
 	}
 	addr &= ~0x3;
+	if (!mem_get_phy((void*)addr)) {
+		printk("access unmapped addr %x\n", addr);
+		return -1;
+	}
+
 	old = *(unsigned long*)addr;
 	if (strcmp(argv[1],"rd") == 0) {
 		printk("%08x: %08x\n", addr, old);

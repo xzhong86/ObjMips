@@ -78,6 +78,8 @@ static int cmd_thread(void *data)
 {
 	struct cmd_arg *cmd = data;
 	int ret;
+
+	thread_new_group(current_thread());
 	ret = cmd->fun(cmd->argc, cmd->argv);
 	if (ret)
 		printk("command %s failed %d\n",cmd->name,ret);

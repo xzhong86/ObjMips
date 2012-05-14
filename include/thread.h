@@ -5,6 +5,10 @@
 
 #ifndef __ASSEMBLY__
 
+typedef struct thread_task thread_t;
+
+#include <signal.h>
+
 typedef int (*thread_fun_t)(void *);
 struct thread_head;
 struct thread_task {
@@ -27,10 +31,21 @@ struct thread_task {
 	unsigned long cp0_epc, cp0_badvaddr;
 	unsigned long cp0_status, cp0_cause;
 
+	/* signal */
+	struct signal {
+		unsigned long mask, pending;
+		struct signal_action actions[SIG_MAX];
+	} signal;
+
+	/* relationship */
+	struct thread_task *father,*child,*brother;
+	struct {
+		struct thread_task *leader, *next;
+	} group;
+
 	thread_fun_t fun;
 	void *data;
 };
-typedef struct thread_task thread_t;
 
 struct pgd;
 /* this struction may be accessed in assembler */
@@ -54,9 +69,11 @@ struct thread_head {
 
 #define TIF_CREATE	0
 #define TIF_PENDING	1
+#define TIF_RESCHED	2
 
 #define _TIF_CREATE	(1 << TIF_CREATE)
 #define _TIF_PENDING	(1 << TIF_PENDING)
+#define _TIF_RESCHED	(1 << TIF_RESCHED)
 
 
 
@@ -88,6 +105,11 @@ __thread_create(thread_fun_t fun, void *data, const char *name,
 	__thread_create((F), (D), #F, (unsigned)-1, 0);
 #define thread_create_name(F, D, N)			\
 	__thread_create((F), (D), (N), (unsigned)-1, 0);
+
+/* called before 'thread' have a child */
+void thread_new_group(thread_t *thd);
+
+void thread_exit_group(int err);
 
 /* release cpu for other thread */
 void thread_yield(void);

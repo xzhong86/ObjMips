@@ -66,7 +66,6 @@ int do_signal(void)
 	struct signal *sigp = &current_thread()->signal;
 	unsigned long work;
 
-	printk("%s %x %x\n",current_thread()->name,sigp->pending,sigp->mask);
 	work = sigp->pending & ~sigp->mask;
 	while (work) {
 		int sig = fls(work) - 1;

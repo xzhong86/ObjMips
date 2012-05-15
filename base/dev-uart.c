@@ -32,8 +32,8 @@
 
 static volatile u8 *uart_base;
 static int uart_no;
-static short uart_irqs[UART_NUM] = { 13, 12, 11, 10 };
-//static short uart_irqs[UART_NUM] = { 59, 58, 57, 56 };
+//static short uart_irqs[UART_NUM] = { 13, 12, 11, 10 }; /* 4770 */
+static short uart_irqs[UART_NUM] = { 59, 58, 57, 56 }; /* 4780 */
 
 /* check which port used. */
 static void uart_chk(void)

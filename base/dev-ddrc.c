@@ -99,8 +99,6 @@ static int ddrc_remap(void)
 	ahb1 = REG(0xB3200000) | (1 << 15);
 	ahb2 = REG(0xB3400000) | (1 << 31);
 
-	printk("%x %x %x %x\n",mmap0_reg,mmap1_reg,ahb0,ahb2);
-
 	/* .align X = 2^X */
 	asm volatile (".align 5\n\tsync");
 	REG32(DDRC_MMAP0) = mmap0_reg;
@@ -134,7 +132,7 @@ int ddrc_init(void)
 		dev_uart_remap();
 	}
 	size = initdram(0);
-	printk("ddr mem size %dMB\n", size>>20);
+	printk("ddr mem size %dMB %p\n", size>>20, ddrc_base);
 	ddrc_ddr_size = size;
 	return 0;
 }

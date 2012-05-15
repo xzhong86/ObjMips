@@ -369,7 +369,7 @@ unsigned long mem_get_phy(void * p)
 		return 0;
 
 	vaddr = PFN(page) * PAGE_SIZE;
-	vaddr = off & (PAGE_SIZE - 1);
+	vaddr += off & (PAGE_SIZE - 1);
 	return vaddr;
 }
 

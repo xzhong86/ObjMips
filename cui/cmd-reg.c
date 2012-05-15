@@ -3,11 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <base.h>
+#include <iomap.h>
 #include <command.h>
 
 static void do_reg_help(char *str)
 {
 	printk("reg rd/wt/and/or addr [~][val]\n");
+	printk("reg map paddr\n");
+	printk("reg unmap vaddr\n");
 }
 static int do_reg(int argc,char *argv[])
 {
@@ -27,6 +30,21 @@ static int do_reg(int argc,char *argv[])
 		val = strtoul(str, NULL, 16);
 		if (not) val = ~val;
 	}
+
+	if (argc == 3 && strcmp(argv[1],"map") == 0) {
+		void *vaddr = ioremap(addr, 0x4);
+		if (!vaddr) {
+			printk("ioremap %x failed.\n",addr);
+			return -1;
+		} else {
+			printk("ioremap %x to %p.\n",addr,vaddr);
+			return 0;
+		}
+	}
+	else if (argc == 3 && strcmp(argv[1],"unmap") == 0) {
+		iounmap((void*)addr);
+	}
+
 	addr &= ~0x3;
 	if (!mem_get_phy((void*)addr)) {
 		printk("access unmapped addr %x\n", addr);

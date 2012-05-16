@@ -1,9 +1,8 @@
 
 #include <base.h>
 #include <iomap.h>
+#include <jzsoc.h>
 
-#define	DDRC_BASE	0x13010000
-//#define	DDRC_BASE	0x13020000
 #define DEV_REG_BASE	ddrc_base
 
 #define DDRC_CFG	0x4
@@ -122,13 +121,14 @@ unsigned int ddrc_ddr_size;
 void dev_uart_remap(void);
 int ddrc_init(void)
 {
-	unsigned int size;
+	unsigned int base, size;
 
-	ddrc_base = ioremap(DDRC_BASE, 0x1000);
+	base = jzsoc_devs[JZSOC_INTC].base;
+	ddrc_base = ioremap(base, 0x1000);
 	if (ioremapped) {
 		jzsoc_mem_remapped = 1;
 		ddrc_remap();
-		ddrc_base = ioremap(DDRC_BASE, 0x1000);
+		ddrc_base = ioremap(base, 0x1000);
 		dev_uart_remap();
 	}
 	size = initdram(0);

@@ -152,12 +152,43 @@ static void clean_thread(thread_t *thd)
 	local_irq_restore(&flags);
 }
 
+static struct task *pick_next_task(struct task_list *tl, int cpu)
+{
+	struct task *next, **pp = &tl->running;
+
+	for ( ; *pp; pp = &(*pp)->next)
+		if ((*pp)->task.cpumask & (1 << cpu))
+			break;
+	if (*pp) {
+		next = *pp;
+		*pp = next->next;
+	} else {
+		next = task_list.idle[cpu];
+		task_list.idle[cpu] = NULL;
+	}
+	return next;
+}
+static void put_cur_task(struct task_list *tl, int cpu, struct task *t)
+{
+	struct task **pp;
+
+	switch (t->task.state) {
+	case THREAD_STATE_RUNNING: pp = &tl->running; break;
+	case THREAD_STATE_SLEEP:   pp = &tl->sleep; break;
+	case THREAD_STATE_IDLE:    pp = &tl->idle[cpu]; break;
+	case THREAD_STATE_EXIT:
+	default:  pp = &tl->dead; break;
+	}
+	for ( ; *pp; pp = &(*pp)->next) ;
+	*pp = t;
+	t->next = NULL;
+}
+
 extern void thread_switch(struct thread_head *cur,struct thread_head *next);
 void thread_yield(void)
 {
 	int flags, cpu;
 	struct task *cur, *next;
-	struct task **pp;
 
 	if (thread_test_cur(TIF_PENDING))
 		do_signal();
@@ -169,28 +200,13 @@ reschedule:
 	cpu = smp_cpu_id();
 	cur = container_of(current_thread(), struct task, task);
 
-	next = task_list.running;
-	if (!next) {
-		next = task_list.idle[cpu];
-		task_list.idle[cpu] = NULL;
-	} else {
-		task_list.running = next->next;
-	}
+	next = pick_next_task(&task_list, cpu);
 	if (!next) {
 		printk("No thread to switch!\n");
 		goto out;
 	}
 
-	switch (cur->task.state) {
-	case THREAD_STATE_RUNNING: pp = &task_list.running; break;
-	case THREAD_STATE_SLEEP:   pp = &task_list.sleep; break;
-	case THREAD_STATE_IDLE:    pp = &task_list.idle[cpu]; break;
-	case THREAD_STATE_EXIT:
-	default:  pp = &task_list.dead; break;
-	}
-	for ( ; *pp; pp = &(*pp)->next) ;
-	*pp = cur;
-	cur->next = NULL;
+	put_cur_task(&task_list, cpu, cur);
 
 	cur->task.cp0_status = read_c0_status();
 	cur->task.cp0_cause  = read_c0_cause();

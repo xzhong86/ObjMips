@@ -33,7 +33,6 @@ static void soft_init(void)
 	mem_init();
 	mmu_init();
 	thread_init();
-	printk("soft_init() finished.\n");
 }
 
 extern int ddrc_init(void);
@@ -48,7 +47,15 @@ static void base_device_init(void)
 	ost_init();
 }
 
+extern void jzsoc_probe(void);
 extern void uart_early_init(void);
+static void early_device_init(void)
+{
+	jzsoc_probe();
+	uart_early_init();
+	printk("CPU Prid : %08x\n", read_c0_prid());
+}
+
 extern void param_init(void);
 extern void init_initcalls(void);
 extern int _call_main(int ac,char *av[]);
@@ -61,7 +68,7 @@ static int main_thread(void *data)
 extern void cpu_idle_loop(void);
 void base_entry_fun(void)
 {
-	uart_early_init();
+	early_device_init();
 	param_init();
 	soft_init();
 	base_device_init();

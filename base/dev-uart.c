@@ -2,11 +2,8 @@
 #include <irq.h>
 #include <base.h>
 
+#include <jzsoc.h>
 #include <console.h>
-
-#define UART_BASE	0xB0030000
-#define UART_OFF	0x1000
-#define UART_NUM	4
 
 #define OFF_RDR	(0x00)
 #define OFF_TDR	(0x00)
@@ -32,8 +29,6 @@
 
 static volatile u8 *uart_base;
 static int uart_no;
-//static short uart_irqs[UART_NUM] = { 13, 12, 11, 10 }; /* 4770 */
-static short uart_irqs[UART_NUM] = { 59, 58, 57, 56 }; /* 4780 */
 
 /* check which port used. */
 static void uart_chk(void)
@@ -42,20 +37,20 @@ static void uart_chk(void)
 	int p;
 	
 	for(p = 0; p < 4; p++) {
-		uart = (u8*)(UART_BASE + p * UART_OFF);
+		uart = (u8*)PHYS_TO_K1(jzsoc_devs[JZSOC_UART0+p].base);
 		uart[OFF_TDR] = "0123"[p];
 	}
 	for(p = 0; p < 4; p++) {
-		uart = (u8*)(UART_BASE + p * UART_OFF);
+		uart = (u8*)PHYS_TO_K1(jzsoc_devs[JZSOC_UART0+p].base);
 		if (uart[OFF_LCR]) 
 			break;
 	}
 	if (p == 4) {
-		uart_base = (u8*)(UART_BASE + 2 * UART_OFF);
-		uart_no = 2;
+		uart_base = (u8*)PHYS_TO_K1(jzsoc_devs[JZSOC_UART2].base);
+		uart_no = JZSOC_UART2;
 	} else {
 		uart_base = uart;
-		uart_no = p;
+		uart_no = JZSOC_UART0 + p;
 	}
 }
 static int uart_tstc (void)
@@ -140,7 +135,7 @@ static int fifo_init(void)
 	REG8(OFF_IER) = IER_RDR;
 	REG8(OFF_FCR) = 0x17;
 
-	register_irqfun(uart_irqs[uart_no], fifo_interrput,
+	register_irqfun(jzsoc_devs[uart_no].irq, fifo_interrput,
 			"UART fifo",&fifo_console);
 	return 0;
 }

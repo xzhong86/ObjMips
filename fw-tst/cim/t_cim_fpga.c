@@ -109,7 +109,7 @@ static chk_t cim_check(Tfw_dw *dev)
 {
   unsigned int err = 0;
 
-  printk("cim fa %x da %x cmd %x\n",get_cimfa(),get_cimda(),get_cimcmd());
+  //printk("cim fa %x da %x cmd %x\n",get_cimfa(),get_cimda(),get_cimcmd());
   err += check_cim_frame(cim_frame0_ptr, 0, CIM_FRAME0_SIZE_W);
   err += check_cim_frame(cim_frame1_ptr, 0, CIM_FRAME1_SIZE_W);
   err += check_cim_frame(cim_frame2_ptr, 0, CIM_FRAME2_SIZE_W);

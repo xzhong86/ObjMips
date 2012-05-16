@@ -2,6 +2,7 @@
 #include <irq.h>
 #include <iomap.h>
 #include <ktime.h>
+#include <jzsoc.h>
 
 static void *ost_base;
 #define DEV_REG_BASE	ost_base
@@ -38,7 +39,7 @@ unsigned long long sched_clock(void)
 }
 int ost_init(void)
 {
-	ost_base = ioremap(0x10002000, 0x1000);
+	ost_base = ioremap(jzsoc_devs[JZSOC_OST].base, 0x1000);
 
 	REG32(OSTCSR) = 0;
 	REG32(OSTCNT) = 0;
@@ -49,7 +50,7 @@ int ost_init(void)
 	REG32(TMCR) = 0x8000;  // clear mask
 	REG32(TESR) = 0x8000;  // enable counter
 
-	register_irqfun(27+8, ost_irq,"OST",NULL);
+	register_irqfun(jzsoc_devs[JZSOC_OST].irq, ost_irq,"OST",NULL);
 
 	return 0;
 }

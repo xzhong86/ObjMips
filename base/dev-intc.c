@@ -1,5 +1,6 @@
 #include <bitops.h>
 #include <iomap.h>
+#include <jzsoc.h>
 
 #define DEV_REG_BASE	intc_base
 
@@ -62,6 +63,9 @@ int intc_tst_no(unsigned int sr1,unsigned int sr0)
 
 int intc_init(void)
 {
-	intc_base = ioremap(0x10001000, 0x200);
+	unsigned long base;
+
+	base = jzsoc_devs[JZSOC_INTC].base;
+	intc_base = ioremap(base, 0x200);
 	return 0;
 }

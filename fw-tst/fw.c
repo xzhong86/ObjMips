@@ -21,6 +21,7 @@ struct tdev {
 #define FLG_BUSY	0x1
 #define FLG_UNTEST	0x2
 	unsigned int times;
+	unsigned int times_prev;
 	unsigned int hash;
 	struct fw_dev fwdev;
 	struct fw_ops *ops;
@@ -108,10 +109,27 @@ static int tdev_statm(struct tdev *tdev)
 	return ret;
 }
 
+static void check_running(unsigned int times, struct tdev *list)
+{
+	struct tdev *td;
+	int nr = 0;
+
+	if (times % 1024)
+		return;
+	printk("[FW] running report:");
+	for (td = list; td; td = td->next) {
+		int r = td->times != td->times_prev;
+		printk(" %s(%c)",td->fwdev.name,r?'R':'S');
+		td->times_prev = td->times;
+		nr += r;
+	}
+	printk("\n");
+}
 static int fw_test_all(void)
 {
 	struct tdev *tdev;
 	int err = 0, running;
+	unsigned int times = 0;
 
 	do {
 		running = 0;
@@ -139,6 +157,7 @@ static int fw_test_all(void)
 			if (err) 
 				break;
 		}
+		check_running(++times, tdev_head);
 	} while (!err && running);
 
        	return err;

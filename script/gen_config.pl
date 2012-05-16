@@ -16,6 +16,7 @@ while(<>) {
     }
     next if ($in_config == 0);
 
+    next if (/^#.*/);
     if(/^(\S+)\s*=\s*([yn])/) {
 	if ($2 eq "y") {
 	    print "#define $1\n";

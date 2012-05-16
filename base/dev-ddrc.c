@@ -99,12 +99,13 @@ static int ddrc_remap(void)
 	ahb2 = REG(0xB3400000) | (1 << 31);
 
 	/* .align X = 2^X */
-	asm volatile (".align 5\n\tsync");
+	asm volatile (".align 7\n\tsync");
 	REG32(DDRC_MMAP0) = mmap0_reg;
 	REG32(DDRC_MMAP1) = mmap1_reg;
 	REG(0xB3400000) = ahb2;
 	REG(0xB3200000) = ahb1;
 	REG(0xB3000000) = ahb0;
+	__asm__ __volatile__(".align 2" : : :"memory");
 
 	return 0;
 }
@@ -123,7 +124,7 @@ int ddrc_init(void)
 {
 	unsigned int base, size;
 
-	base = jzsoc_devs[JZSOC_INTC].base;
+	base = jzsoc_devs[JZSOC_DDRC].base;
 	ddrc_base = ioremap(base, 0x1000);
 	if (ioremapped) {
 		jzsoc_mem_remapped = 1;

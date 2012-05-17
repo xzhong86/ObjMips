@@ -6,6 +6,7 @@
 #include <base.h>
 #include <spinlock.h>
 #include <command.h>
+#include <pmon.h>
 
 #include <test/fw.h>
 
@@ -112,13 +113,18 @@ static int tdev_statm(struct tdev *tdev)
 static void check_running(unsigned int times, struct tdev *list)
 {
 	struct tdev *td;
+	unsigned int tmp, cyc;
 	int nr = 0;
 
-	if (times % 1024)
+	pmon_get_cnt32(tmp, cyc);
+	if (times % 64 || cyc < 100000000)
 		return;
+	pmon_clear_cnt();
 	printk("[FW] running report:");
 	for (td = list; td; td = td->next) {
 		int r = td->times != td->times_prev;
+		if (td->flags & FLG_UNTEST)
+			continue;
 		printk(" %s(%c)",td->fwdev.name,r?'R':'S');
 		td->times_prev = td->times;
 		nr += r;
@@ -131,6 +137,8 @@ static int fw_test_all(void)
 	int err = 0, running;
 	unsigned int times = 0;
 
+	pmon_prepare(PMON_EVENT_CYCLE);
+	pmon_start();
 	do {
 		running = 0;
 		for (tdev = tdev_head; tdev; tdev = tdev->next) {

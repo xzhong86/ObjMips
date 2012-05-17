@@ -29,7 +29,7 @@
 #define MAX_X2D_TEST_TIMES 1000
 
 //#define X2D_DEBUG
-#define X2D_SHOW
+//#define X2D_SHOW
 #define USER_CFG_OPT
 
 #define X2D_IRQ_ID 19
@@ -2105,6 +2105,7 @@ static chk_t x2d_check(struct fw_dev *dev)
 	uint32_t rdata_trans_num = read_x2d_reg(X2D_SLV_BRD_DATA);
 	uint32_t rdata_trans_cycle = read_x2d_reg(X2D_SLV_BRD_CYC);
 
+#ifdef X2D_SHOW
 	printk(" > Cycle: %d time:%fns/per_pix   target: %fns   %f%% \n", consum_time, 
 	       cycle_per_pixel,  taget_cycle_per_pixel, cycle_per_pixel*100/taget_cycle_per_pixel
 		); 
@@ -2115,6 +2116,7 @@ static chk_t x2d_check(struct fw_dev *dev)
 	printk(" > read  data num: %d, cycle: %d, effect: %f%%\n", rdata_trans_num, rdata_trans_cycle,
 	       (double)rdata_trans_num*100/(double)(rdata_trans_cycle+1)
 		);
+#endif
 
 	blast_cache_all();
 #ifdef X2D_DEBUG

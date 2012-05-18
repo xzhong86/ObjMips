@@ -1,7 +1,6 @@
 #include <stdio.h>
 
 #include <base.h>
-#include <clock.h>
 
 struct soc_clk_t {
 	unsigned int m,n,no,pll,pll1;
@@ -35,17 +34,7 @@ static int get_clk_info(void)
 	X(c); X(h0); X(h2); X(c1); X(p); X(h1);
 	return 0;
 }
-unsigned int get_cpu_fre(void)
-{
-	if(soc_clk.pll == 0) get_clk_info();
-	return soc_clk.cclk;
-}
-unsigned int get_pclk_fre(void)
-{
-	if(soc_clk.pll == 0) get_clk_info();
-	return soc_clk.pclk;
-}
-void print_cpu_fre(void)
+static void print_cpu_fre(void)
 {
 	if(soc_clk.pll == 0) get_clk_info();
 	printk("print cpu frequency:\n");
@@ -60,3 +49,13 @@ void print_cpu_fre(void)
 	printk("VPU Bus CLK: %dMHz\n",soc_clk.h1clk/1000000);
 	return;
 }
+
+#include <init.h>
+#include <jzsoc.h>
+static int clk_init(void)
+{
+	if (jzsoc_ver == JZSOC_JZ4770)
+		print_cpu_fre();
+	return 0;
+}
+dev_initcall(clk_init, 0);

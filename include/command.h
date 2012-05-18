@@ -40,7 +40,7 @@ int do_command(int argc,char **argv);
 int complete_command(char *str);
 
 #define DEF_COMMAND(NAME,FUN,HELP)					\
-	static struct __command_entity __e_##fun __used __command_section = { \
+	static struct __command_entity __e_##FUN __used __command_section = { \
 		.name = NAME,						\
 		.fun = FUN,						\
 		.help = HELP,						\

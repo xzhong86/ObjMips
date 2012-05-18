@@ -4,6 +4,7 @@
 #include <string.h>
 #include <base.h>
 #include <iomap.h>
+#include <mem.h>
 #include <command.h>
 
 static void do_reg_help(char *str)

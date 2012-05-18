@@ -10,8 +10,6 @@ CONFIG_SIM = n
 
 CONFIG_CUI = y
 
-JZSOC_4770 = y
-
 #End configs
 
 

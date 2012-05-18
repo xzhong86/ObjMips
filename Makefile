@@ -9,8 +9,8 @@ obj-y	+= main.o
 # Command User Interface
 obj-$(CONFIG_CUI) += cui/
 
-# devicies, not ready now
-#obj-y	+= device/
+# devicies
+obj-y	+= devices/
 
 # test cases
 obj-y	+= test/

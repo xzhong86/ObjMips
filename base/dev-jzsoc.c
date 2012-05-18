@@ -8,10 +8,10 @@ static struct jzsoc_device jz4770_devs[JZSOC_DEV_NR] = {
 	[JZSOC_INTC] = { 0x10001000, 2 },
 	[JZSOC_DDRC] = { 0x13020000, 0 },
 	[JZSOC_OST]  = { 0x10002000, 27+8 },
-	[JZSOC_UART0] = { 0x10030000, 13 },
-	[JZSOC_UART1] = { 0x10031000, 12 },
-	[JZSOC_UART2] = { 0x10032000, 11 },
-	[JZSOC_UART3] = { 0x10033000, 10 },
+	[JZSOC_UART0] = { 0x10030000, 5+8 },
+	[JZSOC_UART1] = { 0x10031000, 4+8 },
+	[JZSOC_UART2] = { 0x10032000, 3+8 },
+	[JZSOC_UART3] = { 0x10033000, 2+8 },
 };
 
 static struct jzsoc_device jz4780_devs[JZSOC_DEV_NR] = {
@@ -25,6 +25,14 @@ static struct jzsoc_device jz4780_devs[JZSOC_DEV_NR] = {
 };
 
 enum jzsoc_version jzsoc_ver;
+const char *jzsoc_name[JZSOC_VER_NR] = {
+	[JZSOC_JZ4740] = "Jz4740",
+	[JZSOC_JZ4750] = "Jz4750",
+	[JZSOC_JZ4760] = "Jz4760",
+	[JZSOC_JZ4760b] = "Jz4760b",
+	[JZSOC_JZ4770] = "Jz4770",
+	[JZSOC_JZ4780] = "Jz4780",
+};
 
 int jzsoc_probe(void)
 {

@@ -65,7 +65,6 @@ static int tdev_statm(struct tdev *tdev)
 			tdev->state = ST_STOPPED;
 			break;
 		}
-		tdev->times ++;
 		tdev->state = ST_RUNNING;
 		break;
 
@@ -91,6 +90,7 @@ static int tdev_statm(struct tdev *tdev)
 			tdev->state = ST_STOPPED;
 			break;
 		}
+		tdev->times ++;
 		tdev->state = ST_READY;
 		break;
 

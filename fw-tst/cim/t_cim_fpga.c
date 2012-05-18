@@ -20,6 +20,14 @@ static void *cim_base, *gpio_base;
 
 typedef struct fw_dev Tfw_dw;
 
+//#define CIM_IRQ	(30+8)
+#ifdef CIM_IRQ
+static void cim_ask(Tfw_dw *dev);
+static void cim_interrupt(int irq, void *d)
+{
+	cim_ask((Tfw_dw*)d);
+}
+#endif
 static int cim_prepare(Tfw_dw *dev)
 {
   // get one memory space for frames 0-3 storage
@@ -38,6 +46,9 @@ static int cim_prepare(Tfw_dw *dev)
   // generate the cim register base address
   cim_base  = ioremap(0x13060000, 0x1000);
   gpio_base = ioremap(0x10010000, 0x1000);
+#ifdef CIM_IRQ
+  register_irqfun(CIM_IRQ, cim_interrupt,"CIM",dev);
+#endif
 
   // need to config the gpio for pclk
   alter4vci();
@@ -61,8 +72,9 @@ static int cim_reset(Tfw_dw *dev)
   enb_dsm_gate();
   set_pack(0);
   dis_dummy(); 
-
-  //init_default_dvi();
+#ifdef CIM_IRQ
+  REG32(CIMIMR) = ~CIMIMR_DSTPM;
+#endif
 
   memset(cim_frame0_ptr, 0, CIM_FRAME0_SIZE_B);
   memset(cim_frame1_ptr, 0, CIM_FRAME1_SIZE_B);
@@ -141,7 +153,9 @@ static struct fw_ops cim_ops = {
 	.prepare = cim_prepare,
 	.reset = cim_reset,
 	.start = cim_start,
+#ifndef CIM_IRQ
 	.ask = cim_ask,
+#endif
 	.check = cim_check,
 	.halt = cim_halt,
 };

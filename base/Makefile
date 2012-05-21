@@ -11,6 +11,6 @@ obj-y 	+= switch.o thread.o sem.o signal.o
 obj-y 	+= console.o
 
 # Basic devices for OBJ-MIPS
-obj-y	+= dev-jzsoc.o dev-ddrc.o dev-intc.o dev-uart.o dev-ost.o
+obj-y	+= jzsoc.o dev-ddrc.o dev-intc.o dev-uart.o dev-ost.o
 
 obj-$(CONFIG_NCSIM) += rom.o

@@ -48,14 +48,14 @@ static void base_device_init(void)
 }
 
 #include <jzsoc.h>
-extern void jzsoc_probe(void);
 extern void uart_early_init(void);
 static void early_device_init(void)
 {
-	jzsoc_probe();
+	unsigned int prid = read_c0_prid();
+	jzsoc_probe(prid);
 	uart_early_init();
 	printk("\nProduct : %s\n", jzsoc_name[jzsoc_ver]);
-	printk("CPU Prid : %08x\n", read_c0_prid());
+	printk("CPU Prid : %08x\n", prid);
 }
 
 extern void param_init(void);

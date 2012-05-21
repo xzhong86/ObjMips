@@ -54,7 +54,7 @@ static void print_cpu_fre(void)
 #include <jzsoc.h>
 static int clk_init(void)
 {
-	if (jzsoc_ver == JZSOC_JZ4770)
+	if (jzsoc_ver == JZSOC_4770)
 		print_cpu_fre();
 	return 0;
 }

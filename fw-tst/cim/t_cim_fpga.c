@@ -16,11 +16,12 @@
 #define GPIO_BASE ((unsigned)gpio_base)
 static void *cim_base, *gpio_base;
 
+#define CIM_IRQ	(30+8)
+
 #include "t_cim_fpga.h"
 
 typedef struct fw_dev Tfw_dw;
 
-//#define CIM_IRQ	(30+8)
 #ifdef CIM_IRQ
 static void cim_ask(Tfw_dw *dev);
 static void cim_interrupt(int irq, void *d)
@@ -72,9 +73,6 @@ static int cim_reset(Tfw_dw *dev)
   enb_dsm_gate();
   set_pack(0);
   dis_dummy(); 
-#ifdef CIM_IRQ
-  REG32(CIMIMR) = ~CIMIMR_DSTPM;
-#endif
 
   memset(cim_frame0_ptr, 0, CIM_FRAME0_SIZE_B);
   memset(cim_frame1_ptr, 0, CIM_FRAME1_SIZE_B);
@@ -96,6 +94,10 @@ static int cim_start(Tfw_dw *dev)
   dis_rxf_rst();
 
   dis_vci_int();
+#ifdef CIM_IRQ
+  enb_dma_stop_int();
+#endif
+
   enb_vci_dma();
   enb_vci();
 

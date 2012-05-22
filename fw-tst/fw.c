@@ -117,7 +117,7 @@ static void check_running(unsigned int times, struct tdev *list)
 	int nr = 0;
 
 	pmon_get_cnt32(tmp, cyc);
-	if (times % 64 || cyc < 100000000)
+	if (cyc < 200000000)
 		return;
 	pmon_clear_cnt();
 	printk("[FW] running report:");
